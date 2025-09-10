@@ -19,10 +19,6 @@ interface AppContextType {
   addOrder: (order: Omit<Order, 'id' | 'orderDate'>) => Promise<any>;
   updateOrder: (id: string, order: Partial<Order>) => Promise<void>;
   refetch: () => Promise<void>;
-  
-  // UI State
-  currentView: string;
-  setCurrentView: (view: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -36,8 +32,6 @@ export const useApp = () => {
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentView, setCurrentView] = useState('dashboard');
-  
   const {
     customers,
     products,
@@ -70,8 +64,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addOrder,
         updateOrder,
         refetch,
-        currentView,
-        setCurrentView,
       }}
     >
       {children}

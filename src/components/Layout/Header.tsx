@@ -1,50 +1,89 @@
 import React from 'react';
-import { Menu, Bell, User } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { useNotifications } from '../../contexts/NotificationContext';
+import { 
+  Bell, 
+  User, 
+  LogOut, 
+  Package,
+  Menu,
+  X
+} from 'lucide-react';
 
 interface HeaderProps {
-  onMenuToggle: () => void;
+  onToggleSidebar: () => void;
+  onToggleNotifications: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
-  return (
-    <header className="bg-white shadow-sm border-b border-gray-200 px-4 py-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={onMenuToggle}
-            className="lg:hidden p-2 rounded-md hover:bg-gray-100 transition-colors"
-          >
-            <Menu className="w-6 h-6 text-gray-600" />
-          </button>
-          
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              Bem-vindo à Panetto di Cris
-            </h2>
-            <p className="text-sm text-gray-600">
-              {new Date().toLocaleDateString('pt-BR', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}
-            </p>
-          </div>
-        </div>
+const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onToggleNotifications }) => {
+  const { user, signOut } = useAuth();
+  const { unreadCount } = useNotifications();
 
-        <div className="flex items-center space-x-4">
-          <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors">
-            <Bell className="w-6 h-6" />
-            <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full"></span>
-          </button>
-          
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-r from-orange-400 to-amber-500 rounded-full flex items-center justify-center">
-              <User className="w-5 h-5 text-white" />
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+    }
+  };
+
+  return (
+    <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-30">
+      <div className="px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          {/* Left side */}
+          <div className="flex items-center space-x-4">
+            {/* Mobile menu button */}
+            <button
+              onClick={onToggleSidebar}
+              className="lg:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+
+            {/* Logo - visible on mobile */}
+            <div className="flex items-center space-x-3 lg:hidden">
+              <div className="w-8 h-8 bg-gradient-to-r from-orange-400 to-amber-500 rounded-lg flex items-center justify-center">
+                <Package className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-lg font-bold text-gray-900">Panetto di Cris</span>
             </div>
-            <span className="text-sm font-medium text-gray-700 hidden md:inline">
-              Administrador
-            </span>
+          </div>
+
+          {/* Right side */}
+          <div className="flex items-center space-x-4">
+            {/* Notifications */}
+            <button
+              onClick={onToggleNotifications}
+              className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <Bell className="w-6 h-6" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* User menu */}
+            <div className="flex items-center space-x-3">
+              <div className="hidden sm:block text-right">
+                <p className="text-sm font-medium text-gray-900">{user?.email}</p>
+                <p className="text-xs text-gray-600">Administrador</p>
+              </div>
+              
+              <div className="w-8 h-8 bg-gradient-to-r from-orange-400 to-amber-500 rounded-full flex items-center justify-center">
+                <User className="w-5 h-5 text-white" />
+              </div>
+
+              <button
+                onClick={handleSignOut}
+                className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                title="Sair"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
       </div>

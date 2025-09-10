@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../contexts/AppContext';
+import CustomerForm from '../Forms/CustomerForm';
 import { 
   Search, 
   Plus, 
@@ -14,11 +15,31 @@ import {
 const CustomersList: React.FC = () => {
   const { customers } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<any>(null);
 
   const filteredCustomers = customers.filter(customer => 
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.whatsapp.includes(searchTerm)
   );
+
+  const handleEdit = (customer: any) => {
+    setEditingCustomer(customer);
+    setShowForm(true);
+  };
+
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setEditingCustomer(null);
+    setViewingCustomer(null);
+  };
+
+  const [viewingCustomer, setViewingCustomer] = useState<any>(null);
+
+  const handleView = (customer: any) => {
+    setViewingCustomer(customer);
+    setShowForm(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -29,7 +50,10 @@ const CustomersList: React.FC = () => {
           <p className="text-gray-600">Gerencie sua base de clientes</p>
         </div>
         
-        <button className="flex items-center space-x-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200 shadow-lg">
+        <button 
+          onClick={() => setShowForm(true)}
+          className="flex items-center space-x-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200 shadow-lg"
+        >
           <Plus className="w-5 h-5" />
           <span>Novo Cliente</span>
         </button>
@@ -78,10 +102,16 @@ const CustomersList: React.FC = () => {
                 </div>
                 
                 <div className="flex items-center space-x-1">
-                  <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+                  <button 
+                    onClick={() => handleView(customer)}
+                    className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
                     <Eye className="w-4 h-4" />
                   </button>
-                  <button className="p-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors">
+                  <button 
+                    onClick={() => handleEdit(customer)}
+                    className="p-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors"
+                  >
                     <Edit className="w-4 h-4" />
                   </button>
                 </div>
@@ -135,13 +165,24 @@ const CustomersList: React.FC = () => {
                   ? 'Tente ajustar o termo de busca'
                   : 'Você ainda não possui clientes cadastrados'}
               </p>
-              <button className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200">
+              <button 
+                onClick={() => setShowForm(true)}
+                className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200"
+              >
                 Cadastrar Primeiro Cliente
               </button>
             </div>
           </div>
         )}
       </div>
+
+      <CustomerForm
+        isOpen={showForm}
+        onClose={handleCloseForm}
+        customer={editingCustomer || viewingCustomer}
+        isEditing={!!editingCustomer}
+        isViewing={!!viewingCustomer}
+      />
     </div>
   );
 };

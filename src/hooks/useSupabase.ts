@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import type { Customer, Product, ProductCategory, Order } from '../types';
 
 export const useSupabaseData = () => {
+  const { user } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
@@ -12,6 +14,16 @@ export const useSupabaseData = () => {
 
   // Fetch all data
   const fetchData = async () => {
+    // Only fetch data if user is authenticated
+    if (!user) {
+      setCustomers([]);
+      setProducts([]);
+      setCategories([]);
+      setOrders([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -349,8 +361,16 @@ export const useSupabaseData = () => {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (user) {
+      fetchData();
+    } else {
+      setCustomers([]);
+      setProducts([]);
+      setCategories([]);
+      setOrders([]);
+      setLoading(false);
+    }
+  }, [user]);
 
   return {
     customers,

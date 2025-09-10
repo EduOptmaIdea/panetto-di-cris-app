@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../contexts/AppContext';
+import ProductForm from '../Forms/ProductForm';
 import { 
   Search, 
   Plus, 
@@ -14,6 +15,9 @@ const ProductsList: React.FC = () => {
   const { products, categories } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
+  const [showForm, setShowForm] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [viewingProduct, setViewingProduct] = useState<any>(null);
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -26,6 +30,22 @@ const ProductsList: React.FC = () => {
     return category?.name || 'Categoria não encontrada';
   };
 
+  const handleEdit = (product: any) => {
+    setEditingProduct(product);
+    setShowForm(true);
+  };
+
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setEditingProduct(null);
+    setViewingProduct(null);
+  };
+
+  const handleView = (product: any) => {
+    setViewingProduct(product);
+    setShowForm(true);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -35,7 +55,10 @@ const ProductsList: React.FC = () => {
           <p className="text-gray-600">Gerencie seu catálogo de produtos</p>
         </div>
         
-        <button className="flex items-center space-x-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200 shadow-lg">
+        <button 
+          onClick={() => setShowForm(true)}
+          className="flex items-center space-x-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200 shadow-lg"
+        >
           <Plus className="w-5 h-5" />
           <span>Novo Produto</span>
         </button>
@@ -135,12 +158,18 @@ const ProductsList: React.FC = () => {
                   </div>
                   
                   <div className="flex items-center space-x-2 pt-3 border-t">
-                    <button className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors">
+                    <button 
+                      onClick={() => handleView(product)}
+                      className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
+                    >
                       <Eye className="w-4 h-4" />
                       <span>Ver</span>
                     </button>
                     
-                    <button className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors">
+                    <button 
+                      onClick={() => handleEdit(product)}
+                      className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors"
+                    >
                       <Edit className="w-4 h-4" />
                       <span>Editar</span>
                     </button>
@@ -161,13 +190,24 @@ const ProductsList: React.FC = () => {
                   ? 'Tente ajustar os filtros de busca'
                   : 'Você ainda não possui produtos cadastrados'}
               </p>
-              <button className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200">
+              <button 
+                onClick={() => setShowForm(true)}
+                className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200"
+              >
                 Cadastrar Primeiro Produto
               </button>
             </div>
           </div>
         )}
       </div>
+
+      <ProductForm
+        isOpen={showForm}
+        onClose={handleCloseForm}
+        product={editingProduct || viewingProduct}
+        isEditing={!!editingProduct}
+        isViewing={!!viewingProduct}
+      />
     </div>
   );
 };

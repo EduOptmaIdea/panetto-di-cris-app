@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   ShoppingCart, 
@@ -9,7 +10,6 @@ import {
   BarChart3,
   MessageSquare
 } from 'lucide-react';
-import { useApp } from '../../contexts/AppContext';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -17,18 +17,24 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
-  const { currentView, setCurrentView } = useApp();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'orders', label: 'Pedidos', icon: ShoppingCart },
-    { id: 'customers', label: 'Clientes', icon: Users },
-    { id: 'products', label: 'Produtos', icon: Package },
-    { id: 'menu', label: 'Menu Digital', icon: MenuIcon },
-    { id: 'analytics', label: 'Relatórios', icon: BarChart3 },
-    { id: 'whatsapp', label: 'WhatsApp', icon: MessageSquare },
-    { id: 'settings', label: 'Configurações', icon: Settings },
+    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/orders', label: 'Pedidos', icon: ShoppingCart },
+    { path: '/customers', label: 'Clientes', icon: Users },
+    { path: '/products', label: 'Produtos', icon: Package },
+    { path: '/menu', label: 'Menu Digital', icon: MenuIcon },
+    { path: '/analytics', label: 'Relatórios', icon: BarChart3 },
+    { path: '/whatsapp', label: 'WhatsApp', icon: MessageSquare },
+    { path: '/settings', label: 'Configurações', icon: Settings },
   ];
+
+  const handleNavigation = (path: string) => {
+    navigate(path);
+    onToggle(); // Fecha o menu no mobile após navegar
+  };
 
   return (
     <>
@@ -61,14 +67,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
         <nav className="p-4 space-y-2">
           {menuItems.map((item) => {
             const Icon = item.icon;
-            const isActive = currentView === item.id;
+            const isActive = location.pathname === item.path || 
+                           (item.path === '/dashboard' && location.pathname === '/');
             
             return (
               <button
-                key={item.id}
+                key={item.path}
                 onClick={() => {
-                  setCurrentView(item.id);
-                  onToggle();
+                  handleNavigation(item.path);
                 }}
                 className={`
                   w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors duration-200

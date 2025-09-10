@@ -1,92 +1,104 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import { AppProvider } from './contexts/AppContext';
-import Sidebar from './components/Layout/Sidebar';
+import LoginForm from './components/Auth/LoginForm';
 import Header from './components/Layout/Header';
-import LoadingSpinner from './components/Layout/LoadingSpinner';
-import ErrorMessage from './components/Layout/ErrorMessage';
+import Sidebar from './components/Layout/Sidebar';
 import Dashboard from './components/Dashboard/Dashboard';
 import OrdersList from './components/Orders/OrdersList';
-import CustomersList from './components/Customers/CustomersList';
 import ProductsList from './components/Products/ProductsList';
+import CustomersList from './components/Customers/CustomersList';
+import AnalyticsDashboard from './components/Analytics/AnalyticsDashboard';
 import DigitalMenu from './components/Menu/DigitalMenu';
 import PlaceholderView from './components/Placeholder/PlaceholderView';
-import { useApp } from './contexts/AppContext';
-import { BarChart3, MessageSquare, Settings } from 'lucide-react';
+import NotificationCenter from './components/Notifications/NotificationCenter';
+import ToastNotification from './components/Notifications/ToastNotification';
+import LoadingSpinner from './components/Layout/LoadingSpinner';
+import { useState } from 'react';
+import { MessageSquare, Settings } from 'lucide-react';
 
 const AppContent: React.FC = () => {
+  const { user, loading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { currentView, loading, error, refetch } = useApp();
+  const [notificationCenterOpen, setNotificationCenterOpen] = useState(false);
 
   if (loading) {
-    return <LoadingSpinner />;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <LoadingSpinner />
+      </div>
+    );
   }
 
-  if (error) {
-    return <ErrorMessage message={error} onRetry={refetch} />;
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50">
+        <LoginForm />
+      </div>
+    );
   }
-
-  const renderCurrentView = () => {
-    switch (currentView) {
-      case 'dashboard':
-        return <Dashboard />;
-      case 'orders':
-        return <OrdersList />;
-      case 'customers':
-        return <CustomersList />;
-      case 'products':
-        return <ProductsList />;
-      case 'menu':
-        return <DigitalMenu />;
-      case 'analytics':
-        return (
-          <PlaceholderView 
-            title="Relatórios e Análises"
-            description="Visualize métricas de vendas, produtos mais vendidos e performance da sua paneteria"
-            icon={BarChart3}
-          />
-        );
-      case 'whatsapp':
-        return (
-          <PlaceholderView 
-            title="Integração WhatsApp"
-            description="Gerencie mensagens, envie pedidos e promoções diretamente pelo WhatsApp"
-            icon={MessageSquare}
-          />
-        );
-      case 'settings':
-        return (
-          <PlaceholderView 
-            title="Configurações"
-            description="Configure suas preferências, taxas de entrega, métodos de pagamento e mais"
-            icon={Settings}
-          />
-        );
-      default:
-        return <Dashboard />;
-    }
-  };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
-      
-      <div className="flex-1 flex flex-col lg:ml-0">
-        <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
-        
-        <main className="flex-1 p-4 lg:p-8">
-          {renderCurrentView()}
-        </main>
+    <Router>
+      <div className="min-h-screen bg-gray-50">
+        <Header 
+          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+          onToggleNotifications={() => setNotificationCenterOpen(!notificationCenterOpen)}
+        />
+        <div className="flex">
+          <Sidebar 
+            isOpen={sidebarOpen}
+            onToggle={() => setSidebarOpen(!sidebarOpen)}
+          />
+          <main className="flex-1 lg:ml-64 p-6">
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/orders" element={<OrdersList />} />
+              <Route path="/products" element={<ProductsList />} />
+              <Route path="/customers" element={<CustomersList />} />
+              <Route path="/analytics" element={<AnalyticsDashboard />} />
+              <Route path="/menu" element={<DigitalMenu />} />
+              <Route path="/whatsapp" element={
+                <PlaceholderView 
+                  title="WhatsApp Integration" 
+                  description="Integração com WhatsApp para automatizar atendimento e pedidos"
+                  icon={MessageSquare}
+                />
+              } />
+              <Route path="/settings" element={
+                <PlaceholderView 
+                  title="Configurações" 
+                  description="Configure as preferências do sistema e dados da empresa"
+                  icon={Settings}
+                />
+              } />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </main>
+        </div>
+        <NotificationCenter 
+          isOpen={notificationCenterOpen}
+          onClose={() => setNotificationCenterOpen(false)}
+        />
+        <ToastNotification />
       </div>
-    </div>
+    </Router>
   );
 };
 
-function App() {
+const App: React.FC = () => {
   return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
+    <AuthProvider>
+      <NotificationProvider>
+        <AppProvider>
+          <AppContent />
+        </AppProvider>
+      </NotificationProvider>
+    </AuthProvider>
   );
-}
+};
 
 export default App;

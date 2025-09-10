@@ -28,8 +28,9 @@ import {
 } from 'lucide-react';
 import { format, subDays, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import ReportsExport from './ReportsExport';
 
-const Dashboard: React.FC = () => {
+const AnalyticsDashboard: React.FC = () => {
   const { orders, customers, products } = useApp();
 
   // Cálculos de métricas
@@ -179,8 +180,8 @@ const Dashboard: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600">Visão geral do desempenho da sua paneteria</p>
+        <h1 className="text-2xl font-bold text-gray-900">Relatórios e Análises</h1>
+        <p className="text-gray-600">Insights detalhados sobre o desempenho da sua paneteria</p>
       </div>
 
       {/* KPIs */}
@@ -333,6 +334,9 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Export Reports */}
+      <ReportsExport />
+
       {/* Resumo Mensal */}
       <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl shadow-lg p-6 text-white">
         <h3 className="text-xl font-bold mb-4">Resumo do Mês Atual</h3>
@@ -364,4 +368,4 @@ const Dashboard: React.FC = () => {
   );
 };
 
-export default Dashboard;
+export default AnalyticsDashboard;

@@ -1,13 +1,13 @@
 import React from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationContext';
-import { 
-  Bell, 
-  User, 
-  LogOut, 
+import {
+  Bell,
+  User,
+  LogOut,
   Package,
-  Menu,
-  X
+  Menu
+  /*X*/
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -71,7 +71,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onToggleNotifications 
                 <p className="text-sm font-medium text-gray-900">{user?.email}</p>
                 <p className="text-xs text-gray-600">Administrador</p>
               </div>
-              
+
               <div className="w-8 h-8 bg-gradient-to-r from-orange-400 to-amber-500 rounded-full flex items-center justify-center">
                 <User className="w-5 h-5 text-white" />
               </div>

@@ -5,17 +5,15 @@ import {
   Bell,
   User,
   LogOut,
-  Package,
   Menu
-  /*X*/
 } from 'lucide-react';
 
 interface HeaderProps {
-  onToggleSidebar: () => void;
-  onToggleNotifications: () => void;
+  onMenuClick: () => void;
+  onNotificationsClick: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onToggleNotifications }) => {
+const Header: React.FC<HeaderProps> = ({ onMenuClick, onNotificationsClick }) => {
   const { user, signOut } = useAuth();
   const { unreadCount } = useNotifications();
 
@@ -31,30 +29,18 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onToggleNotifications 
     <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-30">
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Left side */}
           <div className="flex items-center space-x-4">
-            {/* Mobile menu button */}
             <button
-              onClick={onToggleSidebar}
+              onClick={onMenuClick}
               className="lg:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <Menu className="w-6 h-6" />
             </button>
-
-            {/* Logo - visible on mobile */}
-            <div className="flex items-center space-x-3 lg:hidden">
-              <div className="w-8 h-8 bg-gradient-to-r from-orange-400 to-amber-500 rounded-lg flex items-center justify-center">
-                <Package className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-lg font-bold text-gray-900">Panetto di Cris</span>
-            </div>
           </div>
 
-          {/* Right side */}
-          <div className="flex items-center space-x-4">
-            {/* Notifications */}
+          <div className="flex items-center space-x-4 ml-auto">
             <button
-              onClick={onToggleNotifications}
+              onClick={onNotificationsClick}
               className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <Bell className="w-6 h-6" />
@@ -65,7 +51,6 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onToggleNotifications 
               )}
             </button>
 
-            {/* User menu */}
             <div className="flex items-center space-x-3">
               <div className="hidden sm:block text-right">
                 <p className="text-sm font-medium text-gray-900">{user?.email}</p>

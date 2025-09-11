@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import type { Customer, Product, ProductCategory, Order } from '../types';
+import type { Customer, Product, ProductCategory, Order, OrderItem } from '../types';
 
 export const useSupabaseData = () => {
   const { user } = useAuth();
@@ -12,9 +12,59 @@ export const useSupabaseData = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch all data
+  const updateCustomerTotals = async (customerId: string) => {
+    const { data: customerOrders, error: ordersError } = await supabase
+      .from('orders')
+      .select('status, total, payment_status')
+      .eq('customer_id', customerId);
+
+    if (ordersError) {
+      console.error('Error fetching customer orders for total calculation:', ordersError);
+      return;
+    }
+
+    const completedOrders = customerOrders.filter(order => order.status === 'delivered').length;
+    const cancelledOrders = customerOrders.filter(order => order.status === 'cancelled').length;
+    const pendingOrders = customerOrders.filter(order => order.status !== 'delivered' && order.status !== 'cancelled').length;
+
+    const paidSpent = customerOrders.filter(order => order.payment_status === 'paid').reduce((sum, order) => sum + order.total, 0);
+    const pendingSpent = customerOrders.filter(order => order.payment_status !== 'paid').reduce((sum, order) => sum + order.total, 0);
+
+    const totalOrders = completedOrders + pendingOrders;
+    const totalSpent = paidSpent;
+
+    const { data: customerData, error: customerFetchError } = await supabase
+      .from('customers')
+      .select('is_gift_eligible')
+      .eq('id', customerId)
+      .single();
+    if (customerFetchError) console.error('Error fetching customer:', customerFetchError);
+
+    const isGiftEligible = paidSpent >= 300 && (!customerData || !customerData.is_gift_eligible);
+    if (isGiftEligible) {
+      await supabase.from('customers').update({ is_gift_eligible: true }).eq('id', customerId);
+      console.log(`Cliente ${customerId} agora é elegível para brinde!`);
+    }
+
+    const { error: customerError } = await supabase
+      .from('customers')
+      .update({
+        total_orders: totalOrders,
+        total_spent: totalSpent,
+        completed_orders: completedOrders,
+        cancelled_orders: cancelledOrders,
+        pending_orders: pendingOrders,
+        paid_spent: paidSpent,
+        pending_spent: pendingSpent,
+      })
+      .eq('id', customerId);
+
+    if (customerError) {
+      console.error('Error updating customer totals:', customerError);
+    }
+  };
+
   const fetchData = async () => {
-    // Only fetch data if user is authenticated
     if (!user) {
       setCustomers([]);
       setProducts([]);
@@ -28,49 +78,40 @@ export const useSupabaseData = () => {
       setLoading(true);
       setError(null);
 
-      // Fetch categories
       const { data: categoriesData, error: categoriesError } = await supabase
         .from('product_categories')
         .select('*')
         .order('name');
-
       if (categoriesError) throw categoriesError;
 
-      // Fetch products with categories
       const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select(`
           *,
-          product_categories(name)
+          category:product_categories(name)
         `)
         .order('name');
-
       if (productsError) throw productsError;
 
-      // Fetch customers
       const { data: customersData, error: customersError } = await supabase
         .from('customers')
         .select('*')
         .order('name');
-
       if (customersError) throw customersError;
 
-      // Fetch orders with related data
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select(`
           *,
-          customers(*),
-          order_items(
+          customer:customers(id, name, whatsapp, address, observations, delivery_preferences, created_at, total_orders, total_spent),
+          items:order_items(
             *,
-            products(*)
+            product:products(id, name, description, category_id, price, image_url, weight, custom_packaging, is_active, created_at, total_sold)
           )
         `)
         .order('created_at', { ascending: false });
-
       if (ordersError) throw ordersError;
 
-      // Transform data to match frontend types
       const transformedCategories: ProductCategory[] = categoriesData?.map(cat => ({
         id: cat.id,
         name: cat.name,
@@ -81,12 +122,13 @@ export const useSupabaseData = () => {
         id: product.id,
         name: product.name,
         description: product.description,
-        category: product.category_id,
+        categoryId: product.category_id,
+        category: product.category as any,
         price: product.price,
-        priceHistory: [{ 
-          date: new Date(product.created_at), 
-          price: product.price, 
-          channel: 'direct' as const 
+        priceHistory: [{
+          date: new Date(product.created_at),
+          price: product.price,
+          channel: 'direct' as const
         }],
         image: product.image_url || undefined,
         weight: product.weight || undefined,
@@ -106,41 +148,48 @@ export const useSupabaseData = () => {
         createdAt: new Date(customer.created_at),
         totalOrders: customer.total_orders,
         totalSpent: customer.total_spent,
+        completedOrders: customer.completed_orders,
+        cancelledOrders: customer.cancelled_orders,
+        pendingOrders: customer.pending_orders,
+        paidSpent: customer.paid_spent,
+        pendingSpent: customer.pending_spent,
+        isGiftEligible: customer.is_gift_eligible,
       })) || [];
-
+      
       const transformedOrders: Order[] = ordersData?.map(order => ({
         id: order.id,
         customerId: order.customer_id,
         customer: {
-          id: order.customers.id,
-          name: order.customers.name,
-          whatsapp: order.customers.whatsapp,
-          address: order.customers.address,
-          observations: order.customers.observations,
-          deliveryPreferences: order.customers.delivery_preferences,
-          createdAt: new Date(order.customers.created_at),
-          totalOrders: order.customers.total_orders,
-          totalSpent: order.customers.total_spent,
+          id: order.customer.id,
+          name: order.customer.name,
+          whatsapp: order.customer.whatsapp,
+          address: order.customer.address,
+          observations: order.customer.observations,
+          deliveryPreferences: order.customer.delivery_preferences,
+          createdAt: new Date(order.customer.created_at),
+          totalOrders: order.customer.total_orders,
+          totalSpent: order.customer.total_spent,
+          completedOrders: order.customer.completed_orders,
+          cancelledOrders: order.customer.cancelled_orders,
+          pendingOrders: order.customer.pending_orders,
+          paidSpent: order.customer.paid_spent,
+          pendingSpent: order.customer.pending_spent,
+          isGiftEligible: order.customer.is_gift_eligible,
         },
-        items: order.order_items?.map(item => ({
+        items: order.items?.map((item: { product_id: any; product: { id: any; name: any; description: any; category_id: any; price: any; image_url: any; weight: any; custom_packaging: any; is_active: any; created_at: string | number | Date; total_sold: any; }; quantity: any; unit_price: any; total: any; }) => ({
           productId: item.product_id,
           product: {
-            id: item.products.id,
-            name: item.products.name,
-            description: item.products.description,
-            category: item.products.category_id,
-            price: item.products.price,
-            priceHistory: [{ 
-              date: new Date(item.products.created_at), 
-              price: item.products.price, 
-              channel: 'direct' as const 
-            }],
-            image: item.products.image_url || undefined,
-            weight: item.products.weight || undefined,
-            customPackaging: item.products.custom_packaging,
-            isActive: item.products.is_active,
-            createdAt: new Date(item.products.created_at),
-            totalSold: item.products.total_sold,
+            id: item.product.id,
+            name: item.product.name,
+            description: item.product.description,
+            categoryId: item.product.category_id,
+            price: item.product.price,
+            image: item.product.image_url || undefined,
+            weight: item.product.weight || undefined,
+            customPackaging: item.product.custom_packaging,
+            isActive: item.product.is_active,
+            createdAt: new Date(item.product.created_at),
+            totalSold: item.product.total_sold,
           },
           quantity: item.quantity,
           unitPrice: item.unit_price,
@@ -164,31 +213,24 @@ export const useSupabaseData = () => {
       setProducts(transformedProducts);
       setCustomers(transformedCustomers);
       setOrders(transformedOrders);
-    } catch (err) {
-      console.error('Error fetching data:', err);
-      setError(err instanceof Error ? err.message : 'Erro ao carregar dados');
+    } catch (err: any) {
+      console.error('Error fetching data:', err.message);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // CRUD operations for customers
-  const addCustomer = async (customerData: Omit<Customer, 'id' | 'createdAt' | 'totalOrders' | 'totalSpent'>) => {
+  const addCustomer = async (customerData: Omit<Customer, 'id' | 'createdAt' | 'totalOrders' | 'totalSpent' | 'isGiftEligible' | 'completedOrders' | 'cancelledOrders' | 'pendingOrders' | 'paidSpent' | 'pendingSpent'>) => {
     try {
-      const { data, error } = await supabase
-        .from('customers')
-        .insert({
-          name: customerData.name,
-          whatsapp: customerData.whatsapp,
-          address: customerData.address,
-          observations: customerData.observations || '',
-          delivery_preferences: customerData.deliveryPreferences || '',
-        })
-        .select()
-        .single();
+      const newCustomer = {
+        ...customerData,
+        delivery_preferences: customerData.deliveryPreferences,
+      };
 
+      const { data, error } = await supabase.from('customers').insert(newCustomer).select().single();
       if (error) throw error;
-      await fetchData(); // Refresh data
+      await fetchData();
       return data;
     } catch (err) {
       console.error('Error adding customer:', err);
@@ -198,56 +240,26 @@ export const useSupabaseData = () => {
 
   const updateCustomer = async (id: string, customerData: Partial<Customer>) => {
     try {
-      const { error } = await supabase
-        .from('customers')
-        .update({
-          name: customerData.name,
-          whatsapp: customerData.whatsapp,
-          address: customerData.address,
-          observations: customerData.observations,
-          delivery_preferences: customerData.deliveryPreferences,
-        })
-        .eq('id', id);
-
+      const { error } = await supabase.from('customers').update(customerData).eq('id', id);
       if (error) throw error;
-      await fetchData(); // Refresh data
+      await fetchData();
     } catch (err) {
       console.error('Error updating customer:', err);
       throw err;
     }
   };
 
-  // CRUD operations for products
-  const addProduct = async (productData: Omit<Product, 'id' | 'createdAt' | 'totalSold' | 'priceHistory'>) => {
+  const addProduct = async (productData: Omit<Product, 'id' | 'createdAt' | 'totalSold' | 'category'> & { categoryId: string }) => {
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .insert({
-          name: productData.name,
-          description: productData.description,
-          category_id: productData.category,
-          price: productData.price,
-          image_url: productData.image || '',
-          weight: productData.weight || 0,
-          custom_packaging: productData.customPackaging,
-          is_active: productData.isActive,
-        })
-        .select()
-        .single();
-
+      const newProduct = {
+        ...productData,
+        total_sold: 0,
+        price_history: productData.priceHistory,
+        category_id: productData.categoryId
+      };
+      const { error } = await supabase.from('products').insert(newProduct);
       if (error) throw error;
-
-      // Add price history entry
-      await supabase
-        .from('price_history')
-        .insert({
-          product_id: data.id,
-          price: productData.price,
-          sales_channel: 'direct',
-        });
-
-      await fetchData(); // Refresh data
-      return data;
+      await fetchData();
     } catch (err) {
       console.error('Error adding product:', err);
       throw err;
@@ -256,65 +268,37 @@ export const useSupabaseData = () => {
 
   const updateProduct = async (id: string, productData: Partial<Product>) => {
     try {
-      const { error } = await supabase
-        .from('products')
-        .update({
-          name: productData.name,
-          description: productData.description,
-          category_id: productData.category,
-          price: productData.price,
-          image_url: productData.image,
-          weight: productData.weight,
-          custom_packaging: productData.customPackaging,
-          is_active: productData.isActive,
-        })
-        .eq('id', id);
-
+      const { error } = await supabase.from('products').update(productData).eq('id', id);
       if (error) throw error;
-
-      // Add price history if price changed
-      if (productData.price !== undefined) {
-        await supabase
-          .from('price_history')
-          .insert({
-            product_id: id,
-            price: productData.price,
-            sales_channel: 'direct',
-          });
-      }
-
-      await fetchData(); // Refresh data
+      await fetchData();
     } catch (err) {
       console.error('Error updating product:', err);
       throw err;
     }
   };
 
-  // CRUD operations for orders
-  const addOrder = async (orderData: Omit<Order, 'id' | 'orderDate'>) => {
+  const addOrder = async (orderData: Omit<Order, 'id' | 'orderDate' | 'customer' | 'items'> & { items: OrderItem[] }) => {
     try {
-      // Insert order
+      const orderToInsert = {
+        customer_id: orderData.customerId,
+        delivery_method: orderData.deliveryMethod,
+        payment_method: orderData.paymentMethod,
+        sales_channel: orderData.salesChannel,
+        delivery_fee: orderData.deliveryFee,
+        estimated_delivery: orderData.estimatedDelivery,
+        notes: orderData.notes,
+        total: orderData.total,
+        status: 'pending',
+        payment_status: orderData.paymentStatus,
+      };
+
       const { data: orderResult, error: orderError } = await supabase
         .from('orders')
-        .insert({
-          customer_id: orderData.customerId,
-          subtotal: orderData.subtotal,
-          delivery_fee: orderData.deliveryFee,
-          total: orderData.total,
-          status: orderData.status,
-          payment_status: orderData.paymentStatus,
-          payment_method: orderData.paymentMethod,
-          delivery_method: orderData.deliveryMethod,
-          sales_channel: orderData.salesChannel,
-          estimated_delivery: orderData.estimatedDelivery?.toISOString(),
-          notes: orderData.notes || '',
-        })
+        .insert(orderToInsert)
         .select()
         .single();
-
       if (orderError) throw orderError;
 
-      // Insert order items
       const orderItems = orderData.items.map(item => ({
         order_id: orderResult.id,
         product_id: item.productId,
@@ -329,7 +313,8 @@ export const useSupabaseData = () => {
 
       if (itemsError) throw itemsError;
 
-      await fetchData(); // Refresh data
+      await updateCustomerTotals(orderData.customerId);
+      await fetchData();
       return orderResult;
     } catch (err) {
       console.error('Error adding order:', err);
@@ -337,7 +322,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  const updateOrder = async (id: string, orderData: Partial<Order>) => {
+const updateOrder = async (id: string, orderData: Partial<Order>) => {
     try {
       const { error } = await supabase
         .from('orders')
@@ -353,7 +338,21 @@ export const useSupabaseData = () => {
         .eq('id', id);
 
       if (error) throw error;
-      await fetchData(); // Refresh data
+
+      // Refetch customer totals after order update
+      const { data: updatedOrder, error: fetchError } = await supabase
+        .from('orders')
+        .select('customer_id')
+        .eq('id', id)
+        .single();
+      
+      if (fetchError) throw fetchError;
+
+      if (updatedOrder.customer_id) {
+        await updateCustomerTotals(updatedOrder.customer_id);
+      }
+
+      await fetchData();
     } catch (err) {
       console.error('Error updating order:', err);
       throw err;

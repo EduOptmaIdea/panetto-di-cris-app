@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import { X, User, Phone, MapPin, FileText } from 'lucide-react';
 
@@ -10,22 +10,34 @@ interface CustomerFormProps {
   isViewing?: boolean;
 }
 
-const CustomerForm: React.FC<CustomerFormProps> = ({ 
-  isOpen, 
-  onClose, 
-  customer, 
+const CustomerForm: React.FC<CustomerFormProps> = ({
+  isOpen,
+  onClose,
+  customer,
   isEditing = false,
   isViewing = false
 }) => {
   const { addCustomer, updateCustomer } = useApp();
   const [loading, setLoading] = useState(false);
+
+  // Use useEffect to keep formData in sync with the customer prop
   const [formData, setFormData] = useState({
     name: customer?.name || '',
     whatsapp: customer?.whatsapp || '',
     address: customer?.address || '',
     observations: customer?.observations || '',
-    deliveryPreferences: customer?.deliveryPreferences || '',
+    deliveryPreferences: customer?.delivery_preferences || '',
   });
+
+  useEffect(() => {
+    setFormData({
+      name: customer?.name || '',
+      whatsapp: customer?.whatsapp || '',
+      address: customer?.address || '',
+      observations: customer?.observations || '',
+      deliveryPreferences: customer?.deliveryPreferences || '',
+    });
+  }, [customer]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,13 +50,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
         await addCustomer(formData);
       }
       onClose();
-      setFormData({
-        name: '',
-        whatsapp: '',
-        address: '',
-        observations: '',
-        deliveryPreferences: '',
-      });
     } catch (error) {
       console.error('Erro ao salvar cliente:', error);
       alert('Erro ao salvar cliente. Tente novamente.');
@@ -63,6 +68,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
   if (!isOpen) return null;
 
   return (
+    // ... rest of the component is unchanged
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b">
@@ -164,20 +170,20 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
           <div className="flex space-x-3 pt-4">
             {!isViewing && (
               <>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200 disabled:opacity-50"
-            >
-              {loading ? 'Salvando...' : (isEditing ? 'Atualizar' : 'Cadastrar')}
-            </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200 disabled:opacity-50"
+                >
+                  {loading ? 'Salvando...' : (isEditing ? 'Atualizar' : 'Cadastrar')}
+                </button>
               </>
             )}
             {isViewing && (

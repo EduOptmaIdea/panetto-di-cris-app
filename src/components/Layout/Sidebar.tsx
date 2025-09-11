@@ -1,22 +1,22 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  ShoppingCart, 
-  Users, 
-  Package, 
+import {
+  LayoutDashboard,
+  ShoppingCart,
+  Users,
+  Package,
   Menu as MenuIcon,
   Settings,
   BarChart3,
-  MessageSquare
+  MessageSquare,
 } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
-  onToggle: () => void;
+  onClose: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -33,43 +33,33 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
 
   const handleNavigation = (path: string) => {
     navigate(path);
-    onToggle(); // Fecha o menu no mobile após navegar
+    onClose();
   };
 
   return (
     <>
-      {/* Mobile overlay */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={onToggle}
+          onClick={onClose}
         />
       )}
-      
-      {/* Sidebar */}
-      <div className={`
-        fixed left-0 top-0 h-full bg-white shadow-lg z-50 transition-transform duration-300 ease-in-out
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:relative lg:translate-x-0 w-64
-      `}>
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-orange-400 to-amber-500 rounded-lg flex items-center justify-center">
-              <Package className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">Panetto di Cris</h1>
-              <p className="text-sm text-gray-600">Controle de Pedidos</p>
-            </div>
-          </div>
+      <div
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-xl transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'
+          } lg:relative lg:translate-x-0 lg:shadow-none`}
+      >
+        <div className="flex items-center justify-between p-6">
+          <h1 className="text-xl font-bold text-orange-600">Panetto di Cris</h1>
+          <button onClick={onClose} className="lg:hidden text-gray-500 hover:text-gray-700">
+          </button>
         </div>
 
         <nav className="p-4 space-y-2">
           {menuItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location.pathname === item.path || 
-                           (item.path === '/dashboard' && location.pathname === '/');
-            
+            const isActive = location.pathname === item.path ||
+              (item.path === '/dashboard' && location.pathname === '/');
+
             return (
               <button
                 key={item.path}
@@ -78,8 +68,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
                 }}
                 className={`
                   w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors duration-200
-                  ${isActive 
-                    ? 'bg-orange-50 text-orange-600 border border-orange-200' 
+                  ${isActive
+                    ? 'bg-orange-50 text-orange-600 border border-orange-200'
                     : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                   }
                 `}

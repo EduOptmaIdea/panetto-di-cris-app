@@ -8,6 +8,14 @@ export interface Customer {
   createdAt: Date;
   totalOrders: number;
   totalSpent: number;
+  is_gift_eligible?: boolean;
+  
+  // Novas propriedades
+  completedOrders: number;
+  cancelledOrders: number;
+  pendingOrders: number;
+  paidSpent: number;
+  pendingSpent: number;
 }
 
 export interface ProductCategory {

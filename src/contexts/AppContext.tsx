@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext } from 'react';
 import { useSupabaseData } from '../hooks/useSupabase';
 import type { Customer, Product, Order, ProductCategory } from '../types';
 
@@ -10,13 +10,13 @@ interface AppContextType {
   orders: Order[];
   loading: boolean;
   error: string | null;
-  
+
   // CRUD operations
-  addCustomer: (customer: Omit<Customer, 'id' | 'createdAt' | 'totalOrders' | 'totalSpent'>) => Promise<any>;
+  addCustomer: (customer: Omit<Customer, 'id' | 'createdAt' | 'isGiftEligible' | 'totalOrders' | 'totalSpent' | 'completedOrders' | 'cancelledOrders' | 'pendingOrders' | 'paidSpent' | 'pendingSpent'>) => Promise<any>;
   updateCustomer: (id: string, customer: Partial<Customer>) => Promise<void>;
-  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'totalSold' | 'priceHistory'>) => Promise<any>;
+  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'totalSold'>) => Promise<any>;
   updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
-  addOrder: (order: Omit<Order, 'id' | 'orderDate'>) => Promise<any>;
+  addOrder: (order: Omit<Order, 'id' | 'orderDate' | 'customer'>) => Promise<any>;
   updateOrder: (id: string, order: Partial<Order>) => Promise<void>;
   refetch: () => Promise<void>;
 }

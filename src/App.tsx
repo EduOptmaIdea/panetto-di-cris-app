@@ -24,80 +24,77 @@ const AppContent: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notificationCenterOpen, setNotificationCenterOpen] = useState(false);
 
+  // Exibe o spinner de carregamento enquanto a autenticação é verificada
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner />
       </div>
     );
   }
 
-  if (!user) {
+  // Renderiza a interface principal se o usuário estiver logado
+  if (user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50">
-        <LoginForm />
-      </div>
+      <NotificationProvider>
+        <AppProvider>
+          <div className="flex min-h-screen bg-gray-100 font-sans">
+            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+            <div className="flex-1 flex flex-col">
+              <Header onMenuClick={() => setSidebarOpen(true)} onNotificationsClick={() => setNotificationCenterOpen(true)} />
+              <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
+                <Routes>
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/orders" element={<OrdersList />} />
+                  <Route path="/products" element={<ProductsList />} />
+                  <Route path="/customers" element={<CustomersList />} />
+                  <Route path="/analytics" element={<AnalyticsDashboard />} />
+                  <Route path="/menu" element={<DigitalMenu />} />
+                  <Route path="/whatsapp" element={
+                    <PlaceholderView
+                      title="Integração com WhatsApp"
+                      description="Em breve, um módulo para automatizar atendimento e pedidos."
+                      icon={MessageSquare}
+                    />
+                  } />
+                  <Route path="/settings" element={
+                    <PlaceholderView
+                      title="Configurações"
+                      description="Configure as preferências do sistema e dados da empresa."
+                      icon={Settings}
+                    />
+                  } />
+                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                </Routes>
+              </main>
+              <NotificationCenter
+                isOpen={notificationCenterOpen}
+                onClose={() => setNotificationCenterOpen(false)}
+              />
+              <ToastNotification />
+            </div>
+          </div>
+        </AppProvider>
+      </NotificationProvider>
     );
   }
 
+  // Redireciona para o login se não houver usuário logado
   return (
-    <Router>
-      <div className="min-h-screen bg-gray-50">
-        <Header 
-          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-          onToggleNotifications={() => setNotificationCenterOpen(!notificationCenterOpen)}
-        />
-        <div className="flex">
-          <Sidebar 
-            isOpen={sidebarOpen}
-            onToggle={() => setSidebarOpen(!sidebarOpen)}
-          />
-          <main className="flex-1 lg:ml-64 p-6">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/orders" element={<OrdersList />} />
-              <Route path="/products" element={<ProductsList />} />
-              <Route path="/customers" element={<CustomersList />} />
-              <Route path="/analytics" element={<AnalyticsDashboard />} />
-              <Route path="/menu" element={<DigitalMenu />} />
-              <Route path="/whatsapp" element={
-                <PlaceholderView 
-                  title="WhatsApp Integration" 
-                  description="Integração com WhatsApp para automatizar atendimento e pedidos"
-                  icon={MessageSquare}
-                />
-              } />
-              <Route path="/settings" element={
-                <PlaceholderView 
-                  title="Configurações" 
-                  description="Configure as preferências do sistema e dados da empresa"
-                  icon={Settings}
-                />
-              } />
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
-            </Routes>
-          </main>
-        </div>
-        <NotificationCenter 
-          isOpen={notificationCenterOpen}
-          onClose={() => setNotificationCenterOpen(false)}
-        />
-        <ToastNotification />
-      </div>
-    </Router>
+    <Routes>
+      <Route path="*" element={<LoginForm />} />
+    </Routes>
   );
 };
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <NotificationProvider>
-        <AppProvider>
-          <AppContent />
-        </AppProvider>
-      </NotificationProvider>
-    </AuthProvider>
+    <Router>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </Router>
   );
 };
 

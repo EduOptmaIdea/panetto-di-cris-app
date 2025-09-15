@@ -26,7 +26,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
     whatsapp: customer?.whatsapp || '',
     address: customer?.address || '',
     observations: customer?.observations || '',
-    deliveryPreferences: customer?.delivery_preferences || '',
+    deliveryPreferences: customer?.deliveryPreferences || '',
   });
 
   useEffect(() => {

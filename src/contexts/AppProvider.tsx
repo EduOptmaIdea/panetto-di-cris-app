@@ -20,7 +20,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   } = useSupabaseData();
 
   return (
-    <AppContext.Provider // ✅ Usa AppContext.Provider, não AppProvider.Provider
+    <AppContext.Provider
       value={{
         customers,
         products,

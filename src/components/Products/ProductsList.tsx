@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { useApp } from '../../contexts/AppContext';
+import { useApp } from '../../contexts/AppProvider';
 import ProductForm from '../Forms/ProductForm';
-import { 
-  Search, 
-  Plus, 
+import {
+  Search,
+  Plus,
   Edit,
   Eye,
   Tag,
@@ -54,8 +54,8 @@ const ProductsList: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Produtos</h1>
           <p className="text-gray-600">Gerencie seu catálogo de produtos</p>
         </div>
-        
-        <button 
+
+        <button
           onClick={() => setShowForm(true)}
           className="flex items-center space-x-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200 shadow-lg"
         >
@@ -79,7 +79,7 @@ const ProductsList: React.FC = () => {
               />
             </div>
           </div>
-          
+
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
@@ -103,8 +103,8 @@ const ProductsList: React.FC = () => {
               {/* Product Image Placeholder */}
               <div className="h-48 bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center">
                 {product.image ? (
-                  <img 
-                    src={product.image} 
+                  <img
+                    src={product.image}
                     alt={product.name}
                     className="w-full h-full object-cover"
                   />
@@ -112,19 +112,19 @@ const ProductsList: React.FC = () => {
                   <Package className="w-16 h-16 text-orange-300" />
                 )}
               </div>
-              
+
               <div className="p-6">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
                     <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2">{product.name}</h3>
                     <p className="text-sm text-gray-600 mb-2 line-clamp-2">{product.description}</p>
-                    
+
                     <div className="flex items-center space-x-2 mb-3">
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
                         <Tag className="w-3 h-3 mr-1" />
                         {getCategoryName(product.category)}
                       </span>
-                      
+
                       {!product.isActive && (
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                           Inativo
@@ -133,7 +133,7 @@ const ProductsList: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-2xl font-bold text-gray-900">
@@ -145,28 +145,28 @@ const ProductsList: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  
+
                   <div className="flex items-center justify-between text-sm text-gray-600">
                     <div className="flex items-center space-x-1">
                       <TrendingUp className="w-4 h-4" />
                       <span>{product.totalSold} vendidos</span>
                     </div>
-                    
+
                     {product.weight && (
                       <span>{product.weight}g</span>
                     )}
                   </div>
-                  
+
                   <div className="flex items-center space-x-2 pt-3 border-t">
-                    <button 
+                    <button
                       onClick={() => handleView(product)}
                       className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
                     >
                       <Eye className="w-4 h-4" />
                       <span>Ver</span>
                     </button>
-                    
-                    <button 
+
+                    <button
                       onClick={() => handleEdit(product)}
                       className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors"
                     >
@@ -190,7 +190,7 @@ const ProductsList: React.FC = () => {
                   ? 'Tente ajustar os filtros de busca'
                   : 'Você ainda não possui produtos cadastrados'}
               </p>
-              <button 
+              <button
                 onClick={() => setShowForm(true)}
                 className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200"
               >

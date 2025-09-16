@@ -19,12 +19,12 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
     notes: '',
     estimatedDelivery: '',
   });
-  
-  const [orderItems, setOrderItems] = useState<{[key: string]: number}>({});
+
+  const [orderItems, setOrderItems] = useState<{ [key: string]: number }>({});
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (Object.keys(orderItems).length === 0) {
       alert('Adicione pelo menos um produto ao pedido');
       return;
@@ -33,16 +33,10 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
     setLoading(true);
 
     try {
-      const customer = customers.find(c => c.id === formData.customerId);
-      if (!customer) {
-        alert('Selecione um cliente válido');
-        return;
-      }
-
       const items = Object.entries(orderItems).map(([productId, quantity]) => {
         const product = products.find(p => p.id === productId);
         if (!product) throw new Error('Produto não encontrado');
-        
+
         return {
           productId,
           product,
@@ -57,7 +51,6 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
 
       const orderData = {
         customerId: formData.customerId,
-        customer,
         items,
         subtotal,
         deliveryFee: formData.deliveryFee,
@@ -73,7 +66,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
 
       await addOrder(orderData);
       onClose();
-      
+
       // Reset form
       setFormData({
         customerId: '',
@@ -172,7 +165,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
               <ShoppingCart className="w-4 h-4" />
               <span>Produtos *</span>
             </label>
-            
+
             <div className="space-y-3 max-h-60 overflow-y-auto border rounded-lg p-3">
               {products.filter(p => p.isActive).map((product) => (
                 <div key={product.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -180,7 +173,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
                     <h4 className="font-medium text-gray-900">{product.name}</h4>
                     <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     {orderItems[product.id] ? (
                       <>

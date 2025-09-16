@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useApp } from '../../contexts/AppContext';
+import { useApp } from '../../contexts/AppProvider';
 import { Download, FileText, Calendar, Filter } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -19,16 +19,16 @@ const ReportsExport: React.FC = () => {
     }
 
     const headers = Object.keys(data[0]).join(',');
-    const rows = data.map(row => 
-      Object.values(row).map(value => 
+    const rows = data.map(row =>
+      Object.values(row).map(value =>
         typeof value === 'string' && value.includes(',') ? `"${value}"` : value
       ).join(',')
     );
-    
+
     const csv = [headers, ...rows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    
+
     if (link.download !== undefined) {
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
@@ -43,7 +43,7 @@ const ReportsExport: React.FC = () => {
   const generateSalesReport = () => {
     const startDate = new Date(dateRange.start);
     const endDate = new Date(dateRange.end);
-    
+
     const filteredOrders = orders.filter(order => {
       const orderDate = new Date(order.orderDate);
       return orderDate >= startDate && orderDate <= endDate;
@@ -166,7 +166,7 @@ const ReportsExport: React.FC = () => {
               <Calendar className="w-4 h-4" />
               <span>Período</span>
             </label>
-            
+
             <div className="grid grid-cols-2 gap-3 mb-3">
               <input
                 type="date"

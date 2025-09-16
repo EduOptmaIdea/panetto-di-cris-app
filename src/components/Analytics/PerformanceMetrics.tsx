@@ -1,5 +1,5 @@
 import React from 'react';
-import { useApp } from '../../contexts/AppContext';
+import { useApp } from '../../contexts/AppProvider';
 import { TrendingUp, TrendingDown, Minus, Target, Clock, CheckCircle } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -39,19 +39,19 @@ const PerformanceMetrics: React.FC = () => {
     });
 
     // Taxa de conversão (pedidos confirmados vs total)
-    const confirmedOrders = orders.filter(order => 
+    const confirmedOrders = orders.filter(order =>
       ['confirmed', 'preparing', 'ready', 'delivered'].includes(order.status)
     );
     const conversionRate = orders.length > 0 ? (confirmedOrders.length / orders.length) * 100 : 0;
 
     // Tempo médio de preparo (estimativa baseada em status)
     const deliveredOrders = orders.filter(order => order.status === 'delivered' && order.completedAt);
-    const avgPreparationTime = deliveredOrders.length > 0 
+    const avgPreparationTime = deliveredOrders.length > 0
       ? deliveredOrders.reduce((sum, order) => {
-          const start = new Date(order.orderDate);
-          const end = new Date(order.completedAt!);
-          return sum + (end.getTime() - start.getTime());
-        }, 0) / deliveredOrders.length / (1000 * 60) // em minutos
+        const start = new Date(order.orderDate);
+        const end = new Date(order.completedAt!);
+        return sum + (end.getTime() - start.getTime());
+      }, 0) / deliveredOrders.length / (1000 * 60) // em minutos
       : 0;
 
     // Faturamento hoje vs ontem
@@ -63,8 +63,8 @@ const PerformanceMetrics: React.FC = () => {
       .filter(order => order.paymentStatus === 'paid')
       .reduce((sum, order) => sum + order.total, 0);
 
-    const revenueChange = yesterdayRevenue > 0 
-      ? ((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100 
+    const revenueChange = yesterdayRevenue > 0
+      ? ((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100
       : 0;
 
     // Taxa de cancelamento
@@ -98,7 +98,7 @@ const PerformanceMetrics: React.FC = () => {
   }> = ({ title, value, change, changeLabel, icon: Icon, color, format = 'number' }) => {
     const formatValue = (val: string | number) => {
       if (typeof val === 'string') return val;
-      
+
       switch (format) {
         case 'currency':
           return `R$ ${val.toFixed(2)}`;
@@ -140,7 +140,7 @@ const PerformanceMetrics: React.FC = () => {
             </div>
           )}
         </div>
-        
+
         <div>
           <p className="text-2xl font-bold text-gray-900 mb-1">
             {formatValue(value)}
@@ -167,7 +167,7 @@ const PerformanceMetrics: React.FC = () => {
         <MetricCard
           title="Pedidos Hoje"
           value={metrics.todayOrders}
-          change={metrics.yesterdayOrders > 0 ? 
+          change={metrics.yesterdayOrders > 0 ?
             ((metrics.todayOrders - metrics.yesterdayOrders) / metrics.yesterdayOrders) * 100 : 0}
           changeLabel="vs ontem"
           icon={Target}

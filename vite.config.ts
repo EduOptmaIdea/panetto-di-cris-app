@@ -7,4 +7,8 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  server: {
+    port: 5174,
+    host: '0.0.0.0', // Acessível via IP da sua máquina na rede local
+  },
 });

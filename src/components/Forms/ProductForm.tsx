@@ -10,10 +10,10 @@ interface ProductFormProps {
   isViewing?: boolean;
 }
 
-const ProductForm: React.FC<ProductFormProps> = ({ 
-  isOpen, 
-  onClose, 
-  product, 
+const ProductForm: React.FC<ProductFormProps> = ({
+  isOpen,
+  onClose,
+  product,
   isEditing = false,
   isViewing = false
 }) => {
@@ -46,7 +46,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
       } else {
         await addProduct(productData);
       }
-      
+
       onClose();
       setFormData({
         name: '',

@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { useApp } from '../../contexts/AppContext';
+import { useApp } from '../../contexts/AppProvider';
 import { Package, Plus, Minus, ShoppingCart } from 'lucide-react';
 
 const DigitalMenu: React.FC = () => {
   const { products, categories } = useApp();
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [cart, setCart] = useState<{[key: string]: number}>({});
+  const [cart, setCart] = useState<{ [key: string]: number }>({});
 
   const filteredProducts = products.filter(product => {
     const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
@@ -63,24 +63,22 @@ const DigitalMenu: React.FC = () => {
         <div className="flex flex-wrap justify-center gap-2 mb-8">
           <button
             onClick={() => setSelectedCategory('all')}
-            className={`px-6 py-3 rounded-full font-medium transition-all duration-200 ${
-              selectedCategory === 'all'
+            className={`px-6 py-3 rounded-full font-medium transition-all duration-200 ${selectedCategory === 'all'
                 ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg'
                 : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
-            }`}
+              }`}
           >
             Todos os Produtos
           </button>
-          
+
           {categories.map((category) => (
             <button
               key={category.id}
               onClick={() => setSelectedCategory(category.id)}
-              className={`px-6 py-3 rounded-full font-medium transition-all duration-200 ${
-                selectedCategory === category.id
+              className={`px-6 py-3 rounded-full font-medium transition-all duration-200 ${selectedCategory === category.id
                   ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg'
                   : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
-              }`}
+                }`}
             >
               {category.name}
             </button>
@@ -94,8 +92,8 @@ const DigitalMenu: React.FC = () => {
               {/* Product Image */}
               <div className="h-48 bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center">
                 {product.image ? (
-                  <img 
-                    src={product.image} 
+                  <img
+                    src={product.image}
                     alt={product.name}
                     className="w-full h-full object-cover"
                   />
@@ -103,7 +101,7 @@ const DigitalMenu: React.FC = () => {
                   <Package className="w-16 h-16 text-orange-300" />
                 )}
               </div>
-              
+
               {/* Product Info */}
               <div className="p-6">
                 <div className="mb-3">
@@ -112,23 +110,23 @@ const DigitalMenu: React.FC = () => {
                   </span>
                   <h3 className="text-xl font-bold text-gray-900 mb-2">{product.name}</h3>
                   <p className="text-gray-600 text-sm mb-3">{product.description}</p>
-                  
+
                   {product.weight && (
                     <p className="text-sm text-gray-500 mb-2">Peso: {product.weight}g</p>
                   )}
-                  
+
                   {product.customPackaging && (
                     <span className="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
                       Embalagem personalizada disponível
                     </span>
                   )}
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div className="text-2xl font-bold text-gray-900">
                     R$ {product.price.toFixed(2)}
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     {cart[product.id] ? (
                       <>
@@ -168,7 +166,7 @@ const DigitalMenu: React.FC = () => {
             <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum produto disponível</h3>
             <p className="text-gray-600">
-              {selectedCategory === 'all' 
+              {selectedCategory === 'all'
                 ? 'Não há produtos ativos no momento'
                 : 'Não há produtos nesta categoria'}
             </p>
@@ -190,7 +188,7 @@ const DigitalMenu: React.FC = () => {
                   R$ {getCartTotal().toFixed(2)}
                 </div>
               </div>
-              
+
               <button className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white py-3 rounded-xl font-semibold hover:from-orange-600 hover:to-amber-600 transition-all duration-200 shadow-lg">
                 Finalizar Pedido
               </button>

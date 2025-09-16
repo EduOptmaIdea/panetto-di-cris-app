@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import type { Customer, Product, ProductCategory, Order, OrderItem } from '../types';
+import type { Customer, Product, ProductCategory, Order, OrderItem} from '../types';
 
 export const useSupabaseData = () => {
   const { user } = useAuth();
@@ -64,7 +64,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!user) {
       setCustomers([]);
       setProducts([]);
@@ -105,7 +105,9 @@ export const useSupabaseData = () => {
           *,
           customer:customers(id, name, whatsapp, address, observations, delivery_preferences, created_at, total_orders, total_spent),
           items:order_items(
-            *,
+            quantity,
+            unit_price,
+            total,
             product:products(id, name, description, category_id, price, image_url, weight, custom_packaging, is_active, created_at, total_sold)
           )
         `)
@@ -122,8 +124,7 @@ export const useSupabaseData = () => {
         id: product.id,
         name: product.name,
         description: product.description,
-        categoryId: product.category_id,
-        category: product.category as any,
+        category: product.category as string,
         price: product.price,
         priceHistory: [{
           date: new Date(product.created_at),
@@ -142,9 +143,10 @@ export const useSupabaseData = () => {
         id: customer.id,
         name: customer.name,
         whatsapp: customer.whatsapp,
+        email: customer.email ?? null,
         address: customer.address,
-        observations: customer.observations || undefined,
-        deliveryPreferences: customer.delivery_preferences || undefined,
+        observations: customer.observations ?? null,
+        deliveryPreferences: customer.delivery_preferences ?? null,
         createdAt: new Date(customer.created_at),
         totalOrders: customer.total_orders,
         totalSpent: customer.total_spent,
@@ -156,16 +158,39 @@ export const useSupabaseData = () => {
         isGiftEligible: customer.is_gift_eligible,
       })) || [];
       
+      type ProductRaw = {
+        id: string;
+        name: string;
+        description: string;
+        category_id: string;
+        price: number;
+        image_url: string | null;
+        weight: number | null;
+        custom_packaging: boolean;
+        is_active: boolean;
+        created_at: string;
+        total_sold: number;
+      };
+      
+      type OrderItemRaw = {
+        product: ProductRaw;
+        quantity: number;
+        unit_price: number;
+        total: number;
+      };
+
       const transformedOrders: Order[] = ordersData?.map(order => ({
         id: order.id,
+        order_number: order.order_number,
         customerId: order.customer_id,
         customer: {
           id: order.customer.id,
           name: order.customer.name,
           whatsapp: order.customer.whatsapp,
+          email: order.customer.email ?? null,
           address: order.customer.address,
-          observations: order.customer.observations,
-          deliveryPreferences: order.customer.delivery_preferences,
+          observations: order.customer.observations ?? null,
+          deliveryPreferences: order.customer.delivery_preferences ?? null,
           createdAt: new Date(order.customer.created_at),
           totalOrders: order.customer.total_orders,
           totalSpent: order.customer.total_spent,
@@ -176,14 +201,15 @@ export const useSupabaseData = () => {
           pendingSpent: order.customer.pending_spent,
           isGiftEligible: order.customer.is_gift_eligible,
         },
-        items: order.items?.map((item: { product_id: any; product: { id: any; name: any; description: any; category_id: any; price: any; image_url: any; weight: any; custom_packaging: any; is_active: any; created_at: string | number | Date; total_sold: any; }; quantity: any; unit_price: any; total: any; }) => ({
-          productId: item.product_id,
+        items: order.items?.map((item: OrderItemRaw) => ({
+          productId: item.product.id,
           product: {
             id: item.product.id,
             name: item.product.name,
             description: item.product.description,
-            categoryId: item.product.category_id,
+            category: item.product.category_id,
             price: item.product.price,
+            priceHistory: [],
             image: item.product.image_url || undefined,
             weight: item.product.weight || undefined,
             customPackaging: item.product.custom_packaging,
@@ -198,28 +224,33 @@ export const useSupabaseData = () => {
         subtotal: order.subtotal,
         deliveryFee: order.delivery_fee,
         total: order.total,
-        status: order.status as any,
-        paymentStatus: order.payment_status as any,
-        paymentMethod: order.payment_method as any,
-        deliveryMethod: order.delivery_method as any,
-        salesChannel: order.sales_channel as any,
+        status: order.status as Order['status'],
+        paymentStatus: order.payment_status as Order['paymentStatus'],
+        paymentMethod: order.payment_method as Order['paymentMethod'],
+        deliveryMethod: order.delivery_method as Order['deliveryMethod'],
+        salesChannel: order.sales_channel as Order['salesChannel'],
         orderDate: new Date(order.created_at),
-        estimatedDelivery: order.estimated_delivery ? new Date(order.estimated_delivery) : undefined,
-        completedAt: order.completed_at ? new Date(order.completed_at) : undefined,
-        notes: order.notes || undefined,
+        estimatedDelivery: new Date(order.estimated_delivery),
+        completedAt: new Date(order.completed_at),
+        notes: order.notes ?? null,
       })) || [];
+
 
       setCategories(transformedCategories);
       setProducts(transformedProducts);
       setCustomers(transformedCustomers);
       setOrders(transformedOrders);
-    } catch (err: any) {
-      console.error('Error fetching data:', err.message);
-      setError(err.message);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Ocorreu um erro desconhecido.');
+      }
+      console.error('Error in fetchData:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]); // Adicionando useCallback e a dependência `user`
 
   const addCustomer = async (customerData: Omit<Customer, 'id' | 'createdAt' | 'totalOrders' | 'totalSpent' | 'isGiftEligible' | 'completedOrders' | 'cancelledOrders' | 'pendingOrders' | 'paidSpent' | 'pendingSpent'>) => {
     try {
@@ -277,28 +308,49 @@ export const useSupabaseData = () => {
     }
   };
 
-  const addOrder = async (orderData: Omit<Order, 'id' | 'orderDate' | 'customer' | 'items'> & { items: OrderItem[] }) => {
+  const addOrder = async (
+  orderData: Omit<Order, 'id' | 'orderDate' | 'customer' | 'order_number'> & {
+    items: OrderItem[];
+    order_number?: number;
+  }
+) => {
     try {
+      // 1. Obter e atualizar o próximo número do contador
+      const { data: counter, error: counterError } = await supabase
+        .from('counters')
+        .select('last_number')
+        .eq('name', 'order')
+        .single();
+      if (counterError) {
+        throw new Error('Erro ao buscar o contador de pedidos.');
+      }
+      
+      const nextOrderNumber = (counter.last_number || 0) + 1;
+      
+      const { error: updateCounterError } = await supabase
+        .from('counters')
+        .update({ last_number: nextOrderNumber })
+        .eq('name', 'order');
+      if (updateCounterError) {
+        throw new Error('Erro ao atualizar o contador de pedidos.');
+      }
+      
+      // 2. Preparar os dados para a inserção do pedido
       const orderToInsert = {
-        customer_id: orderData.customerId,
-        delivery_method: orderData.deliveryMethod,
-        payment_method: orderData.paymentMethod,
-        sales_channel: orderData.salesChannel,
-        delivery_fee: orderData.deliveryFee,
-        estimated_delivery: orderData.estimatedDelivery,
-        notes: orderData.notes,
-        total: orderData.total,
-        status: 'pending',
-        payment_status: orderData.paymentStatus,
+        ...orderData,
+        order_number: nextOrderNumber,
+        estimated_delivery: orderData.estimatedDelivery?.toISOString(),
       };
-
+      
+      // 3. Inserir o novo pedido
       const { data: orderResult, error: orderError } = await supabase
         .from('orders')
         .insert(orderToInsert)
         .select()
         .single();
       if (orderError) throw orderError;
-
+      
+      // 4. Inserir os itens do pedido
       const orderItems = orderData.items.map(item => ({
         order_id: orderResult.id,
         product_id: item.productId,
@@ -313,8 +365,12 @@ export const useSupabaseData = () => {
 
       if (itemsError) throw itemsError;
 
+      // 5. Atualizar totais do cliente
       await updateCustomerTotals(orderData.customerId);
+      
+      // 6. Atualizar os dados locais
       await fetchData();
+      
       return orderResult;
     } catch (err) {
       console.error('Error adding order:', err);
@@ -322,7 +378,7 @@ export const useSupabaseData = () => {
     }
   };
 
-const updateOrder = async (id: string, orderData: Partial<Order>) => {
+  const updateOrder = async (id: string, orderData: Partial<Order>) => {
     try {
       const { error } = await supabase
         .from('orders')
@@ -345,7 +401,7 @@ const updateOrder = async (id: string, orderData: Partial<Order>) => {
         .select('customer_id')
         .eq('id', id)
         .single();
-      
+
       if (fetchError) throw fetchError;
 
       if (updatedOrder.customer_id) {
@@ -369,7 +425,7 @@ const updateOrder = async (id: string, orderData: Partial<Order>) => {
       setOrders([]);
       setLoading(false);
     }
-  }, [user]);
+  }, [user, fetchData]);
 
   return {
     customers,

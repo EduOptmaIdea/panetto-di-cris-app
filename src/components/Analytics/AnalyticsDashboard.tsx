@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useApp } from '../../contexts/AppContext';
+import { useApp } from '../../contexts/';
 import {
   BarChart,
   Bar,
@@ -161,10 +161,9 @@ const AnalyticsDashboard: React.FC = () => {
           <p className="text-sm font-medium text-gray-600">{title}</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
           {change && (
-            <p className={`text-sm mt-1 font-medium ${
-              changeType === 'positive' ? 'text-green-600' : 
-              changeType === 'negative' ? 'text-red-600' : 'text-gray-600'
-            }`}>
+            <p className={`text-sm mt-1 font-medium ${changeType === 'positive' ? 'text-green-600' :
+                changeType === 'negative' ? 'text-red-600' : 'text-gray-600'
+              }`}>
               {change}
             </p>
           )}
@@ -226,7 +225,7 @@ const AnalyticsDashboard: React.FC = () => {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis />
-              <Tooltip 
+              <Tooltip
                 labelFormatter={(label, payload) => {
                   const data = payload?.[0]?.payload;
                   return data?.fullDate || label;
@@ -236,11 +235,11 @@ const AnalyticsDashboard: React.FC = () => {
                   name === 'revenue' ? 'Faturamento' : 'Pedidos'
                 ]}
               />
-              <Area 
-                type="monotone" 
-                dataKey="revenue" 
-                stroke="#f97316" 
-                fill="#fed7aa" 
+              <Area
+                type="monotone"
+                dataKey="revenue"
+                stroke="#f97316"
+                fill="#fed7aa"
                 strokeWidth={2}
               />
             </AreaChart>

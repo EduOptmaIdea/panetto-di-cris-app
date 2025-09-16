@@ -1,16 +1,25 @@
+export interface CustomerAddress {
+  street: string;
+  number: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  zipcode: string;
+  notes?: string;
+}
+
 export interface Customer {
   id: string;
   name: string;
   whatsapp: string;
-  address: string;
-  observations?: string;
-  deliveryPreferences?: string;
+  email: string | null;
+  address: CustomerAddress | null;
+  observations: string | null; // corrigido
+  deliveryPreferences: string | null; // corrigido
   createdAt: Date;
   totalOrders: number;
   totalSpent: number;
   is_gift_eligible?: boolean;
-  
-  // Novas propriedades
   completedOrders: number;
   cancelledOrders: number;
   pendingOrders: number;
@@ -31,8 +40,8 @@ export interface Product {
   category: string;
   price: number;
   priceHistory: PriceHistory[];
-  image?: string;
-  weight?: number;
+  image: string | null;
+  weight: number | null;
   customPackaging: boolean;
   isActive: boolean;
   createdAt: Date;
@@ -62,6 +71,7 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
+  // order_number: number;
   customerId: string;
   customer: Customer;
   items: OrderItem[];
@@ -73,8 +83,8 @@ export interface Order {
   paymentMethod: PaymentMethod;
   deliveryMethod: DeliveryMethod;
   salesChannel: SalesChannel;
-  orderDate: Date;
-  estimatedDelivery?: Date;
-  completedAt?: Date;
-  notes?: string;
+  orderDate: Date | null;
+  estimatedDelivery?: Date | null;
+  completedAt?: Date | null;
+  notes: string | null;
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from './useAuth';
 import type { Customer, Product, ProductCategory, Order, OrderItem} from '../types';
 
 export const useSupabaseData = () => {

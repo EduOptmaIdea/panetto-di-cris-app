@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 import { Eye, EyeOff, Mail, Lock, Package, AlertCircle } from 'lucide-react';
 
 const LoginForm: React.FC = () => {
@@ -28,8 +28,10 @@ const LoginForm: React.FC = () => {
         setSuccess('Conta criada com sucesso! Você já pode fazer login.');
         setIsLogin(true);
       }
-    } catch (err: any) {
-      setError(err.message || 'Erro ao processar solicitação');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || 'Erro ao processar solicitação');
+      }
     } finally {
       setLoading(false);
     }
@@ -47,8 +49,10 @@ const LoginForm: React.FC = () => {
     try {
       await resetPassword(formData.email);
       setSuccess('Email de recuperação enviado! Verifique sua caixa de entrada.');
-    } catch (err: any) {
-      setError(err.message || 'Erro ao enviar email de recuperação');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || 'Erro ao enviar email de recuperação');
+      }
     } finally {
       setLoading(false);
     }
@@ -80,7 +84,7 @@ const LoginForm: React.FC = () => {
               {isLogin ? 'Fazer Login' : 'Criar Conta'}
             </h2>
             <p className="text-gray-600">
-              {isLogin 
+              {isLogin
                 ? 'Entre com suas credenciais para acessar o sistema'
                 : 'Crie uma nova conta para começar a usar o sistema'
               }
@@ -177,7 +181,7 @@ const LoginForm: React.FC = () => {
                 }}
                 className="text-gray-600 hover:text-gray-900 text-sm transition-colors"
               >
-                {isLogin 
+                {isLogin
                   ? 'Não tem uma conta? Criar conta'
                   : 'Já tem uma conta? Fazer login'
                 }

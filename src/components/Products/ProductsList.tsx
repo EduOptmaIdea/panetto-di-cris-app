@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useApp } from '../../contexts/AppProvider';
+import { useApp } from '../../contexts/AppContext';
 import ProductForm from '../Forms/ProductForm';
 import {
   Search,
@@ -10,14 +10,15 @@ import {
   TrendingUp,
   Package
 } from 'lucide-react';
+import type { Product } from '../../types/index';
 
 const ProductsList: React.FC = () => {
   const { products, categories } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [showForm, setShowForm] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<any>(null);
-  const [viewingProduct, setViewingProduct] = useState<any>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -30,7 +31,7 @@ const ProductsList: React.FC = () => {
     return category?.name || 'Categoria não encontrada';
   };
 
-  const handleEdit = (product: any) => {
+  const handleEdit = (product: Product) => {
     setEditingProduct(product);
     setShowForm(true);
   };
@@ -41,7 +42,7 @@ const ProductsList: React.FC = () => {
     setViewingProduct(null);
   };
 
-  const handleView = (product: any) => {
+  const handleView = (product: Product) => {
     setViewingProduct(product);
     setShowForm(true);
   };
@@ -204,7 +205,7 @@ const ProductsList: React.FC = () => {
       <ProductForm
         isOpen={showForm}
         onClose={handleCloseForm}
-        product={editingProduct || viewingProduct}
+        product={(editingProduct || viewingProduct) ?? undefined}
         isEditing={!!editingProduct}
         isViewing={!!viewingProduct}
       />

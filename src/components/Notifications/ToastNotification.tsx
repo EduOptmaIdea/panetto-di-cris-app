@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNotifications } from '../../contexts/NotificationContext';
+import { useNotifications } from '../../hooks/useNotifications';
 import { X, CheckCircle, AlertTriangle, AlertCircle, Info } from 'lucide-react';
 
 const ToastNotification: React.FC = () => {
@@ -25,7 +25,7 @@ const ToastNotification: React.FC = () => {
         }, 5000);
       });
     }
-  }, [recentNotifications]);
+  }, [recentNotifications, visibleToasts]);
 
   const getToastIcon = (type: string) => {
     switch (type) {
@@ -57,7 +57,7 @@ const ToastNotification: React.FC = () => {
     setVisibleToasts(prev => prev.filter(id => id !== toastId));
   };
 
-  const visibleNotifications = recentNotifications.filter(n => 
+  const visibleNotifications = recentNotifications.filter(n =>
     visibleToasts.includes(n.id)
   );
 
@@ -74,7 +74,7 @@ const ToastNotification: React.FC = () => {
             <div className="flex-shrink-0">
               {getToastIcon(notification.type)}
             </div>
-            
+
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900">
                 {notification.title}
@@ -82,7 +82,7 @@ const ToastNotification: React.FC = () => {
               <p className="text-sm text-gray-600 mt-1">
                 {notification.message}
               </p>
-              
+
               {notification.action && (
                 <button
                   onClick={() => {
@@ -95,7 +95,7 @@ const ToastNotification: React.FC = () => {
                 </button>
               )}
             </div>
-            
+
             <button
               onClick={() => removeToast(notification.id)}
               className="flex-shrink-0 p-1 text-gray-400 hover:text-gray-600 transition-colors"

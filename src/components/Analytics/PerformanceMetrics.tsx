@@ -1,8 +1,8 @@
 import React from 'react';
-import { useApp } from '../../contexts/AppProvider';
+import { useApp } from '../../contexts/AppContext';
 import { TrendingUp, TrendingDown, Minus, Target, Clock, CheckCircle } from 'lucide-react';
-import { format, subDays, startOfDay, endOfDay } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { /*format,*/ subDays, startOfDay, endOfDay } from 'date-fns';
+// import { ptBR } from 'date-fns/locale';
 
 const PerformanceMetrics: React.FC = () => {
   const { orders } = useApp();
@@ -16,24 +16,28 @@ const PerformanceMetrics: React.FC = () => {
 
     // Pedidos de hoje
     const todayOrders = orders.filter(order => {
+      if (!order.orderDate) return false;
       const orderDate = new Date(order.orderDate);
       return orderDate >= startOfDay(now) && orderDate <= endOfDay(now);
     });
 
     // Pedidos de ontem
     const yesterdayOrders = orders.filter(order => {
+      if (!order.orderDate) return false;
       const orderDate = new Date(order.orderDate);
       return orderDate >= startOfDay(yesterday) && orderDate <= endOfDay(yesterday);
     });
 
     // Pedidos da última semana
     const weekOrders = orders.filter(order => {
+      if (!order.orderDate) return false;
       const orderDate = new Date(order.orderDate);
       return orderDate >= lastWeek;
     });
 
     // Pedidos do mês passado
     const monthOrders = orders.filter(order => {
+      if (!order.orderDate) return false;
       const orderDate = new Date(order.orderDate);
       return orderDate >= lastMonth;
     });
@@ -48,7 +52,7 @@ const PerformanceMetrics: React.FC = () => {
     const deliveredOrders = orders.filter(order => order.status === 'delivered' && order.completedAt);
     const avgPreparationTime = deliveredOrders.length > 0
       ? deliveredOrders.reduce((sum, order) => {
-        const start = new Date(order.orderDate);
+        const start = new Date(order.orderDate!);
         const end = new Date(order.completedAt!);
         return sum + (end.getTime() - start.getTime());
       }, 0) / deliveredOrders.length / (1000 * 60) // em minutos
@@ -92,7 +96,7 @@ const PerformanceMetrics: React.FC = () => {
     value: string | number;
     change?: number;
     changeLabel?: string;
-    icon: React.ComponentType<any>;
+    icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
     color: string;
     format?: 'number' | 'currency' | 'percentage' | 'time';
   }> = ({ title, value, change, changeLabel, icon: Icon, color, format = 'number' }) => {

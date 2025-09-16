@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { useNotifications } from '../../contexts/NotificationContext';
-import { 
-  Bell, 
-  X, 
-  Check, 
-  CheckCheck, 
-  Trash2, 
+import { useNotifications } from '../../hooks/useNotifications';
+import {
+  Bell,
+  X,
+  Check,
+  CheckCheck,
+  Trash2,
   Settings,
   AlertCircle,
   Info,
@@ -66,11 +66,11 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
   return (
     <>
       {/* Overlay */}
-      <div 
+      <div
         className="fixed inset-0 bg-black bg-opacity-50 z-40"
         onClick={onClose}
       />
-      
+
       {/* Notification Panel */}
       <div className="fixed right-4 top-20 w-96 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-[80vh] flex flex-col">
         {/* Header */}
@@ -86,7 +86,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
               )}
             </h3>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setShowSettings(!showSettings)}
@@ -95,7 +95,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
             >
               <Settings className="w-4 h-4" />
             </button>
-            
+
             <button
               onClick={onClose}
               className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
@@ -109,7 +109,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
         {showSettings && (
           <div className="p-4 bg-gray-50 border-b border-gray-200">
             <h4 className="text-sm font-medium text-gray-900 mb-3">Configurações</h4>
-            
+
             {isSupported ? (
               <div className="space-y-2">
                 <button
@@ -118,7 +118,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                 >
                   🔔 Ativar notificações do navegador
                 </button>
-                
+
                 <button
                   onClick={markAllAsRead}
                   disabled={unreadCount === 0}
@@ -127,7 +127,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                   <CheckCheck className="w-4 h-4 inline mr-2" />
                   Marcar todas como lidas
                 </button>
-                
+
                 <button
                   onClick={clearAll}
                   disabled={notifications.length === 0}
@@ -152,33 +152,32 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`p-4 hover:bg-gray-50 transition-colors ${
-                    !notification.read ? 'bg-blue-50' : ''
-                  }`}
+                  className={`p-4 hover:bg-gray-50 transition-colors border-l-4 ${getNotificationBg(
+                    notification.type,
+                    notification.read
+                  )}`}
                 >
                   <div className="flex items-start space-x-3">
                     <div className="flex-shrink-0 mt-1">
                       {getNotificationIcon(notification.type)}
                     </div>
-                    
+
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <p className={`text-sm font-medium ${
-                            notification.read ? 'text-gray-700' : 'text-gray-900'
-                          }`}>
+                          <p className={`text-sm font-medium ${notification.read ? 'text-gray-700' : 'text-gray-900'
+                            }`}>
                             {notification.title}
                           </p>
-                          <p className={`text-sm mt-1 ${
-                            notification.read ? 'text-gray-500' : 'text-gray-600'
-                          }`}>
+                          <p className={`text-sm mt-1 ${notification.read ? 'text-gray-500' : 'text-gray-600'
+                            }`}>
                             {notification.message}
                           </p>
                           <p className="text-xs text-gray-400 mt-2">
                             {format(notification.timestamp, 'dd/MM/yyyy HH:mm', { locale: ptBR })}
                           </p>
                         </div>
-                        
+
                         <div className="flex items-center space-x-1 ml-2">
                           {!notification.read && (
                             <button
@@ -189,7 +188,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                               <Check className="w-4 h-4" />
                             </button>
                           )}
-                          
+
                           <button
                             onClick={() => removeNotification(notification.id)}
                             className="p-1 text-gray-400 hover:text-red-600 transition-colors"
@@ -199,7 +198,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                           </button>
                         </div>
                       </div>
-                      
+
                       {notification.action && (
                         <button
                           onClick={() => {

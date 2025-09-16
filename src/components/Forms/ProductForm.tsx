@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import { X, Package, DollarSign, FileText, Tag, Weight, Gift } from 'lucide-react';
+import { Product } from '../../types/index';
 
 interface ProductFormProps {
   isOpen: boolean;
   onClose: () => void;
-  product?: any;
+  product?: Product;
   isEditing?: boolean;
   isViewing?: boolean;
 }
@@ -33,12 +34,21 @@ const ProductForm: React.FC<ProductFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     try {
       const productData = {
         ...formData,
         price: parseFloat(formData.price.toString()),
-        weight: formData.weight ? parseInt(formData.weight.toString()) : undefined,
+        weight: formData.weight ? parseInt(formData.weight.toString()) : null,
+        // ✅ Adicione priceHistory
+        priceHistory: [
+          {
+            date: new Date(),
+            price: parseFloat(formData.price.toString()),
+            channel: 'direct' as const, // ou outro canal padrão
+          },
+        ],
+        // ✅ Mapeie 'category' para 'categoryId'
+        categoryId: formData.category,
       };
 
       if (isEditing && product) {
@@ -46,7 +56,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
       } else {
         await addProduct(productData);
       }
-
       onClose();
       setFormData({
         name: '',

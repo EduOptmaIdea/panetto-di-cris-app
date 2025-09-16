@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useApp } from '../../contexts/AppProvider';
+import { useApp } from '../../contexts/AppContext';
 import OrderForm from '../Forms/OrderForm';
 import {
   Search,
@@ -13,14 +13,19 @@ import {
   Truck,
   User
 } from 'lucide-react';
+import type { Order, OrderStatus, PaymentStatus } from '../../types';
+
+const formatOrderNumber = (number: number): string => {
+  return number.toString().padStart(4, '0');
+};
 
 const OrdersList: React.FC = () => {
   const { orders, updateOrder } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showForm, setShowForm] = useState(false);
-  const [viewingOrder, setViewingOrder] = useState<any>(null);
-  const [editingOrder, setEditingOrder] = useState<any>(null);
+  const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -81,11 +86,11 @@ const OrdersList: React.FC = () => {
     return labels[channel as keyof typeof labels] || channel;
   };
 
-  const handleView = (order: any) => {
+  const handleView = (order: Order) => {
     setViewingOrder(order);
   };
 
-  const handleEdit = (order: any) => {
+  const handleEdit = (order: Order) => {
     setEditingOrder(order);
   };
 
@@ -158,7 +163,7 @@ const OrdersList: React.FC = () => {
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <div className="flex items-center space-x-3 mb-2">
-                          <h3 className="text-lg font-semibold text-gray-900">#{order.id}</h3>
+                          <h3 className="text-lg font-semibold text-gray-900">Pedido #{formatOrderNumber(order.order_number)}</h3>
                           <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusBadge(order.status)}`}>
                             {getStatusLabel(order.status)}
                           </span>
@@ -175,7 +180,9 @@ const OrdersList: React.FC = () => {
 
                           <div className="flex items-center space-x-2">
                             <Calendar className="w-4 h-4" />
-                            <span>{new Date(order.orderDate).toLocaleDateString('pt-BR')}</span>
+                            <span>
+                              {order.orderDate ? new Date(order.orderDate).toLocaleDateString('pt-BR') : 'Data não disponível'}
+                            </span>
                           </div>
 
                           <div className="flex items-center space-x-2">
@@ -272,7 +279,7 @@ const OrdersList: React.FC = () => {
           <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b">
               <h2 className="text-xl font-bold text-gray-900">
-                {editingOrder ? 'Editar Pedido' : 'Detalhes do Pedido'} #{(viewingOrder || editingOrder).id}
+                {editingOrder ? 'Editar Pedido' : 'Detalhes do Pedido'} Pedido #{formatOrderNumber((viewingOrder || editingOrder)!.order_number)}
               </h2>
               <button
                 onClick={handleCloseOrderDetails}
@@ -289,15 +296,15 @@ const OrdersList: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-600">Nome</p>
-                    <p className="font-medium">{(viewingOrder || editingOrder).customer.name}</p>
+                    <p className="font-medium">{(viewingOrder || editingOrder)?.customer.name}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">WhatsApp</p>
-                    <p className="font-medium">{(viewingOrder || editingOrder).customer.whatsapp}</p>
+                    <p className="font-medium">{(viewingOrder || editingOrder)?.customer.whatsapp}</p>
                   </div>
                   <div className="md:col-span-2">
                     <p className="text-sm text-gray-600">Endereço</p>
-                    <p className="font-medium">{(viewingOrder || editingOrder).customer.address}</p>
+                    <p className="font-medium">{(viewingOrder || editingOrder)?.customer.address}</p>
                   </div>
                 </div>
               </div>
@@ -306,7 +313,7 @@ const OrdersList: React.FC = () => {
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Itens do Pedido</h3>
                 <div className="space-y-2">
-                  {(viewingOrder || editingOrder).items.map((item: any, index: number) => (
+                  {(viewingOrder || editingOrder)?.items.map((item, index) => (
                     <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div>
                         <p className="font-medium">{item.product.name}</p>
@@ -327,15 +334,15 @@ const OrdersList: React.FC = () => {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span>Subtotal:</span>
-                    <span>R$ {(viewingOrder || editingOrder).subtotal.toFixed(2)}</span>
+                    <span>R$ {(viewingOrder || editingOrder)?.subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Taxa de Entrega:</span>
-                    <span>R$ {(viewingOrder || editingOrder).deliveryFee.toFixed(2)}</span>
+                    <span>R$ {(viewingOrder || editingOrder)?.deliveryFee.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between font-bold text-lg border-t pt-2">
                     <span>Total:</span>
-                    <span>R$ {(viewingOrder || editingOrder).total.toFixed(2)}</span>
+                    <span>R$ {(viewingOrder || editingOrder)?.total.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -347,7 +354,10 @@ const OrdersList: React.FC = () => {
                     <label className="text-sm font-medium text-gray-700 mb-2 block">Status do Pedido</label>
                     <select
                       value={editingOrder.status}
-                      onChange={(e) => setEditingOrder({ ...editingOrder, status: e.target.value })}
+                      onChange={(e) => setEditingOrder({
+                        ...editingOrder,
+                        status: e.target.value as OrderStatus
+                      })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     >
                       <option value="pending">Pendente</option>
@@ -362,7 +372,10 @@ const OrdersList: React.FC = () => {
                     <label className="text-sm font-medium text-gray-700 mb-2 block">Status do Pagamento</label>
                     <select
                       value={editingOrder.paymentStatus}
-                      onChange={(e) => setEditingOrder({ ...editingOrder, paymentStatus: e.target.value })}
+                      onChange={(e) => setEditingOrder({
+                        ...editingOrder,
+                        paymentStatus: e.target.value as PaymentStatus
+                      })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     >
                       <option value="pending">Pendente</option>

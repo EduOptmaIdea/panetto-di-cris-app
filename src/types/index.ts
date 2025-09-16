@@ -1,10 +1,10 @@
 export interface CustomerAddress {
-  street: string;
-  number: string;
-  neighborhood: string;
-  city: string;
-  state: string;
-  zipcode: string;
+  street?: string;
+  number?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  zipcode?: string;
   notes?: string;
 }
 
@@ -13,9 +13,9 @@ export interface Customer {
   name: string;
   whatsapp: string;
   email: string | null;
-  address: CustomerAddress | null;
-  observations: string | null; // corrigido
-  deliveryPreferences: string | null; // corrigido
+  address: string | null;
+  observations: string | null;
+  deliveryPreferences: string | null;
   createdAt: Date;
   totalOrders: number;
   totalSpent: number;
@@ -71,7 +71,7 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
-  // order_number: number;
+  order_number: number;
   customerId: string;
   customer: Customer;
   items: OrderItem[];

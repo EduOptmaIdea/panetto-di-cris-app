@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useApp } from '../../contexts/AppProvider';
+import { useApp } from '../../contexts/AppContext';
 import { Download, FileText, Calendar, Filter } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -12,7 +12,7 @@ const ReportsExport: React.FC = () => {
   });
   const [reportType, setReportType] = useState('sales');
 
-  const generateCSV = (data: any[], filename: string) => {
+  const generateCSV = <T extends Record<string, unknown>>(data: T[], filename: string) => {
     if (data.length === 0) {
       alert('Nenhum dado encontrado para o período selecionado');
       return;
@@ -45,13 +45,14 @@ const ReportsExport: React.FC = () => {
     const endDate = new Date(dateRange.end);
 
     const filteredOrders = orders.filter(order => {
+      if (!order.orderDate) return false;
       const orderDate = new Date(order.orderDate);
       return orderDate >= startDate && orderDate <= endDate;
     });
 
     const reportData = filteredOrders.map(order => ({
       'ID do Pedido': order.id,
-      'Data': format(new Date(order.orderDate), 'dd/MM/yyyy', { locale: ptBR }),
+      'Data': format(new Date(order.orderDate!), 'dd/MM/yyyy', { locale: ptBR }),
       'Cliente': order.customer.name,
       'WhatsApp': order.customer.whatsapp,
       'Status': order.status,

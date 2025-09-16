@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useApp } from '../../contexts/AppProvider';
+import { useApp } from '../../contexts/AppContext';
 import { Package, Plus, Minus, ShoppingCart } from 'lucide-react';
 
 const DigitalMenu: React.FC = () => {
@@ -64,8 +64,8 @@ const DigitalMenu: React.FC = () => {
           <button
             onClick={() => setSelectedCategory('all')}
             className={`px-6 py-3 rounded-full font-medium transition-all duration-200 ${selectedCategory === 'all'
-                ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg'
-                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
+              ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg'
+              : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
               }`}
           >
             Todos os Produtos
@@ -76,8 +76,8 @@ const DigitalMenu: React.FC = () => {
               key={category.id}
               onClick={() => setSelectedCategory(category.id)}
               className={`px-6 py-3 rounded-full font-medium transition-all duration-200 ${selectedCategory === category.id
-                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg'
-                  : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
+                ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg'
+                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
                 }`}
             >
               {category.name}

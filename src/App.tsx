@@ -1,13 +1,14 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext';
+import { useAuth } from './hooks/useAuth';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { AppProvider } from './contexts/AppProvider';
 import LoginForm from './components/Auth/LoginForm';
 import Header from './components/Layout/Header';
 import Sidebar from './components/Layout/Sidebar';
 import Dashboard from './components/Dashboard/Dashboard';
-import OrdersList from './components/Orders/OrdersList';
+import OrdersList from './components/Orders/OrdersList.tsx';
 import ProductsList from './components/Products/ProductsList';
 import CustomersList from './components/Customers/CustomersList';
 import AnalyticsDashboard from './components/Analytics/AnalyticsDashboard';

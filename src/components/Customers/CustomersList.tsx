@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useApp } from '../../contexts/AppProvider';
+import { useApp } from '../../contexts/AppContext';
 import CustomerForm from '../Forms/CustomerForm';
 import {
   Search,
@@ -14,7 +14,7 @@ import {
   ChevronUp,
   // CreditCard
 } from 'lucide-react';
-import { Customer, Order } from '../../types';
+import { Customer, Order } from '../../types/index';
 
 const CustomersList: React.FC = () => {
   const { customers, orders, loading, error } = useApp();
@@ -191,7 +191,7 @@ const CustomersList: React.FC = () => {
                               <div className="flex justify-between items-center text-sm font-medium text-gray-900 mb-2">
                                 <span>Pedido #{order.order_number}</span>
                                 <span className="text-gray-500 text-xs">
-                                  {new Date(order.orderDate).toLocaleDateString('pt-BR')}
+                                  {order.orderDate ? new Date(order.orderDate).toLocaleDateString('pt-BR') : 'Data não disponível'}
                                 </span>
                               </div>
                               <div className="flex items-center justify-between text-sm">
@@ -246,7 +246,7 @@ const CustomersList: React.FC = () => {
       <CustomerForm
         isOpen={showForm}
         onClose={handleCloseForm}
-        customer={editingCustomer || viewingCustomer}
+        customer={(editingCustomer || viewingCustomer) ?? undefined} // ✅ Converte null para undefined
         isEditing={!!editingCustomer}
         isViewing={!!viewingCustomer}
       />

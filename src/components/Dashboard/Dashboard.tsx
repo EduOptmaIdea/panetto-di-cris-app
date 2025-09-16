@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useApp } from '../../contexts/AppProvider';
+import { useApp } from '../../contexts/AppContext';
 import { useNavigate } from 'react-router-dom';
 import {
   BarChart,
@@ -48,6 +48,7 @@ const Dashboard: React.FC = () => {
 
     // Pedidos do mês atual
     const currentMonthOrders = orders.filter((order) => {
+      if (!order.orderDate) return false; // ✅ Ignora pedidos sem data
       const orderDate = new Date(order.orderDate);
       return orderDate >= currentMonth.start && orderDate <= currentMonth.end;
     });
@@ -93,6 +94,7 @@ const Dashboard: React.FC = () => {
       end: now,
     }).map((date) => {
       const dayOrders = orders.filter((order) => {
+        if (!order.orderDate) return false; // ✅ Corrigido — linha 96
         const orderDate = new Date(order.orderDate);
         return format(orderDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
       });

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useApp } from '../../contexts/';
+import { useApp } from '../../contexts/AppContext';
 import {
   BarChart,
   Bar,
@@ -11,18 +11,18 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
+  // LineChart,
+  // Line,
   Area,
   AreaChart
 } from 'recharts';
 import {
-  TrendingUp,
+  // TrendingUp,
   DollarSign,
   ShoppingCart,
   Users,
-  Package,
-  Calendar,
+  // Package,
+  // Calendar,
   Award,
   Target
 } from 'lucide-react';
@@ -44,6 +44,7 @@ const AnalyticsDashboard: React.FC = () => {
 
     // Pedidos do mês atual
     const currentMonthOrders = orders.filter(order => {
+      if (!order.orderDate) return false;
       const orderDate = new Date(order.orderDate);
       return orderDate >= currentMonth.start && orderDate <= currentMonth.end;
     });
@@ -87,6 +88,7 @@ const AnalyticsDashboard: React.FC = () => {
       end: now
     }).map(date => {
       const dayOrders = orders.filter(order => {
+        if (!order.orderDate) return false;
         const orderDate = new Date(order.orderDate);
         return format(orderDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
       });
@@ -150,7 +152,7 @@ const AnalyticsDashboard: React.FC = () => {
   const StatCard: React.FC<{
     title: string;
     value: string | number;
-    icon: React.ComponentType<any>;
+    icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
     color: string;
     change?: string;
     changeType?: 'positive' | 'negative' | 'neutral';
@@ -162,7 +164,7 @@ const AnalyticsDashboard: React.FC = () => {
           <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
           {change && (
             <p className={`text-sm mt-1 font-medium ${changeType === 'positive' ? 'text-green-600' :
-                changeType === 'negative' ? 'text-red-600' : 'text-gray-600'
+              changeType === 'negative' ? 'text-red-600' : 'text-gray-600'
               }`}>
               {change}
             </p>

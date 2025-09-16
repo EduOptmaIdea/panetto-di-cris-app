@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { useAuth } from './AuthContext';
+import { useAuth } from '../hooks/useAuth';
 
 export interface Notification {
   id: string;
@@ -27,15 +27,7 @@ interface NotificationContextType {
   isSupported: boolean;
 }
 
-const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
-
-export const useNotifications = () => {
-  const context = useContext(NotificationContext);
-  if (!context) {
-    throw new Error('useNotifications must be used within NotificationProvider');
-  }
-  return context;
-};
+export const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
@@ -52,9 +44,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, [isSupported]);
 
   // Solicitar permissão para notificações
-  const requestPermission = async (): Promise<boolean> => {
+  const requestPermission = useCallback(async (): Promise<boolean> => {
     if (!isSupported) return false;
-
     try {
       const result = await Notification.requestPermission();
       setPermission(result);
@@ -63,19 +54,17 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       console.error('Erro ao solicitar permissão para notificações:', error);
       return false;
     }
-  };
+  }, [isSupported]);
 
-  // Adicionar nova notificação
-  const addNotification = (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
+  // Envolver addNotification em useCallback
+  const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
     const newNotification: Notification = {
       ...notification,
       id: crypto.randomUUID(),
       timestamp: new Date(),
       read: false,
     };
-
     setNotifications(prev => [newNotification, ...prev]);
-
     // Mostrar notificação do navegador se permitido
     if (permission === 'granted' && document.hidden) {
       try {
@@ -85,7 +74,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           badge: '/vite.svg',
           tag: newNotification.id,
         });
-
         browserNotification.onclick = () => {
           window.focus();
           if (notification.action?.onClick) {
@@ -93,7 +81,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           }
           browserNotification.close();
         };
-
         // Auto-fechar após 5 segundos
         setTimeout(() => {
           browserNotification.close();
@@ -102,7 +89,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         console.error('Erro ao mostrar notificação do navegador:', error);
       }
     }
-  };
+  }, [permission]);
 
   // Marcar como lida
   const markAsRead = (id: string) => {
@@ -172,7 +159,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         (payload) => {
           const oldStatus = payload.old.status;
           const newStatus = payload.new.status;
-          
+
           if (oldStatus !== newStatus) {
             const statusMessages = {
               confirmed: '✅ Pedido confirmado',
@@ -217,7 +204,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       ordersSubscription.unsubscribe();
       customersSubscription.unsubscribe();
     };
-  }, [user]);
+  }, [user, addNotification]);
 
   // Solicitar permissão automaticamente quando o usuário fizer login
   useEffect(() => {
@@ -227,7 +214,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         requestPermission();
       }, 3000);
     }
-  }, [user, isSupported, permission]);
+  }, [user, isSupported, permission, requestPermission]);
 
   return (
     <NotificationContext.Provider

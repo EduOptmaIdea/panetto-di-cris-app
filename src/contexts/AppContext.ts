@@ -1,3 +1,4 @@
+// src/contexts/AppContext.ts
 import { createContext, useContext } from 'react';
 import type { Customer, Product, Order, OrderItem, ProductCategory } from '../types';
 
@@ -12,8 +13,13 @@ interface AppContextType {
 
   // CRUD operations
   addCustomer: (customer: Omit<Customer, 'id' | 'createdAt' | 'isGiftEligible' | 'totalOrders' | 'totalSpent' | 'completedOrders' | 'cancelledOrders' | 'pendingOrders' | 'paidSpent' | 'pendingSpent'>) => Promise<void>;
+  
+  // ✅ Corrigido para aceitar o tipo Omit<Product, ...>
+  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'totalSold' | 'priceHistory'>) => Promise<void>;
+  
+  // ✅ Adicionada a nova função de exclusão
+  deleteProduct: (id: string) => Promise<void>;
   updateCustomer: (id: string, customer: Partial<Customer>) => Promise<void>;
-  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'totalSold' | 'category'> & { categoryId: string }) => Promise<void>;
   updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
   addOrder: (
     order: Omit<Order, 'id' | 'orderDate' | 'customer' | 'order_number'> & {

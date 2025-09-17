@@ -42,7 +42,6 @@ export interface Product {
   priceHistory: PriceHistory[];
   image: string | null;
   weight: number | null;
-  customPackaging: boolean;
   isActive: boolean;
   createdAt: Date;
   totalSold: number;
@@ -71,7 +70,7 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
-  order_number: number;
+  order_number?: number;
   customerId: string;
   customer: Customer;
   items: OrderItem[];

@@ -14,6 +14,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     updateCustomer,
     addProduct,
     updateProduct,
+    deleteProduct, // ✅ Adicionado
     addOrder,
     updateOrder,
     refetch,
@@ -32,6 +33,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateCustomer,
         addProduct,
         updateProduct,
+        deleteProduct, // ✅ Adicionado
         addOrder,
         updateOrder,
         refetch,

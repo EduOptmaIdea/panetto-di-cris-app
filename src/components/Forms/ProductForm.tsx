@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import { X, Package, DollarSign, FileText, Tag, Weight, Gift } from 'lucide-react';
-import { Product } from '../../types/index';
+import type { Product } from '../../types/index';
 
 interface ProductFormProps {
   isOpen: boolean;
@@ -20,228 +20,230 @@ const ProductForm: React.FC<ProductFormProps> = ({
 }) => {
   const { addProduct, updateProduct, categories } = useApp();
   const [loading, setLoading] = useState(false);
+
+  // Estado do formulário
   const [formData, setFormData] = useState({
     name: product?.name || '',
     description: product?.description || '',
     category: product?.category || '',
-    price: product?.price || '',
+    price: product?.price || 0,
     image: product?.image || '',
     weight: product?.weight || '',
-    customPackaging: product?.customPackaging || false,
     isActive: product?.isActive !== undefined ? product.isActive : true,
   });
+
+  // ✅ Novo useEffect para sincronizar o estado do formulário com as props
+  useEffect(() => {
+    // Se o formulário estiver fechado, ou se for um novo produto, limpa o formulário
+    if (!isOpen || !product) {
+      setFormData({
+        name: '',
+        description: '',
+        category: '',
+        price: 0,
+        image: '',
+        weight: '',
+        isActive: true,
+      });
+    } else if (product) {
+      // Se estiver editando, preenche com os dados do produto
+      setFormData({
+        name: product.name,
+        description: product.description,
+        category: product.category,
+        price: product.price,
+        image: product.image || '',
+        weight: product.weight || '',
+        isActive: product.isActive,
+      });
+    }
+  }, [isOpen, product]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData({ ...formData, [name]: checked });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const productData = {
-        ...formData,
-        price: parseFloat(formData.price.toString()),
-        weight: formData.weight ? parseInt(formData.weight.toString()) : null,
-        // ✅ Adicione priceHistory
-        priceHistory: [
-          {
-            date: new Date(),
-            price: parseFloat(formData.price.toString()),
-            channel: 'direct' as const, // ou outro canal padrão
-          },
-        ],
-        // ✅ Mapeie 'category' para 'categoryId'
-        categoryId: formData.category,
-      };
-
       if (isEditing && product) {
-        await updateProduct(product.id, productData);
+        await updateProduct(product.id, {
+          name: formData.name,
+          description: formData.description,
+          category: formData.category,
+          price: Number(formData.price),
+          image: formData.image,
+          weight: Number(formData.weight),
+          isActive: formData.isActive,
+        });
       } else {
-        await addProduct(productData);
+        await addProduct({
+          name: formData.name,
+          description: formData.description,
+          category: formData.category,
+          price: Number(formData.price),
+          image: formData.image,
+          weight: Number(formData.weight),
+          isActive: formData.isActive,
+        });
       }
       onClose();
-      setFormData({
-        name: '',
-        description: '',
-        category: '',
-        price: '',
-        image: '',
-        weight: '',
-        customPackaging: false,
-        isActive: true,
-      });
     } catch (error) {
-      console.error('Erro ao salvar produto:', error);
-      alert('Erro ao salvar produto. Tente novamente.');
+      console.error('Failed to save product:', error);
+      // Aqui você poderia adicionar um tratamento de erro para o usuário
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
-    });
   };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-xl font-bold text-gray-900">
+      <div className="bg-white rounded-xl shadow-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center border-b pb-4 mb-4">
+          <h2 className="text-2xl font-bold text-gray-800">
             {isViewing ? 'Visualizar Produto' : isEditing ? 'Editar Produto' : 'Novo Produto'}
           </h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5" />
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <X size={24} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
-              <Package className="w-4 h-4" />
-              <span>Nome do Produto *</span>
-            </label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              disabled={isViewing}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              placeholder="Ex: Panetone Tradicional"
-            />
-          </div>
-
-          <div>
-            <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
-              <FileText className="w-4 h-4" />
-              <span>Descrição *</span>
-            </label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              disabled={isViewing}
-              required
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              placeholder="Descreva o produto, ingredientes, características..."
-            />
-          </div>
-
-          <div>
-            <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
-              <Tag className="w-4 h-4" />
-              <span>Categoria *</span>
-            </label>
-            <select
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-              disabled={isViewing}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-            >
-              <option value="">Selecione uma categoria</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
-                <DollarSign className="w-4 h-4" />
-                <span>Preço *</span>
-              </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Produto</label>
+            <div className="relative">
+              <Package size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
-                type="number"
-                name="price"
-                value={formData.price}
+                type="text"
+                name="name"
+                value={formData.name}
                 onChange={handleChange}
-                disabled={isViewing}
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                placeholder="Ex: Pão de Mel"
                 required
-                min="0"
-                step="0.01"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                placeholder="0,00"
-              />
-            </div>
-
-            <div>
-              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
-                <Weight className="w-4 h-4" />
-                <span>Peso (g)</span>
-              </label>
-              <input
-                type="number"
-                name="weight"
-                value={formData.weight}
-                onChange={handleChange}
                 disabled={isViewing}
-                min="0"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                placeholder="500"
               />
             </div>
           </div>
 
           <div>
-            <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
-              <Package className="w-4 h-4" />
-              <span>URL da Imagem</span>
-            </label>
-            <input
-              type="url"
-              name="image"
-              value={formData.image}
-              onChange={handleChange}
-              disabled={isViewing}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              placeholder="https://exemplo.com/imagem.jpg"
-            />
+            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+            <div className="relative">
+              <FileText size={20} className="absolute left-3 top-3 text-gray-400" />
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                rows={3}
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                placeholder="Ex: Delicioso pão de mel recheado com doce de leite caseiro."
+                disabled={isViewing}
+              ></textarea>
+            </div>
           </div>
 
-          <div className="space-y-3">
-            <div className="flex items-center space-x-3">
-              <input
-                type="checkbox"
-                name="customPackaging"
-                id="customPackaging"
-                checked={formData.customPackaging}
-                disabled={isViewing}
-                onChange={handleChange}
-                className="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500"
-              />
-              <label htmlFor="customPackaging" className="flex items-center space-x-2 text-sm font-medium text-gray-700">
-                <Gift className="w-4 h-4" />
-                <span>Embalagem personalizada disponível</span>
-              </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+              <div className="relative">
+                <Tag size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <select
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 appearance-none"
+                  required
+                  disabled={isViewing}
+                >
+                  <option value="">Selecione uma categoria</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-gray-700">
+                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                  </svg>
+                </div>
+              </div>
             </div>
 
-            <div className="flex items-center space-x-3">
-              <input
-                type="checkbox"
-                name="isActive"
-                id="isActive"
-                checked={formData.isActive}
-                disabled={isViewing}
-                onChange={handleChange}
-                className="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500"
-              />
-              <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
-                Produto ativo (visível no menu)
-              </label>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Preço</label>
+              <div className="relative">
+                <DollarSign size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="number"
+                  name="price"
+                  value={formData.price}
+                  onChange={handleChange}
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  placeholder="25.00"
+                  step="0.01"
+                  required
+                  disabled={isViewing}
+                />
+              </div>
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Peso (g)</label>
+              <div className="relative">
+                <Weight size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="number"
+                  name="weight"
+                  value={formData.weight}
+                  onChange={handleChange}
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  placeholder="500"
+                  disabled={isViewing}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">URL da Imagem</label>
+              <div className="relative">
+                <Gift size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  name="image"
+                  value={formData.image}
+                  onChange={handleChange}
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  placeholder="https://exemplo.com/imagem.png"
+                  disabled={isViewing}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2 pt-2">
+            <input
+              type="checkbox"
+              id="isActive"
+              name="isActive"
+              checked={formData.isActive}
+              onChange={handleChange}
+              disabled={isViewing}
+              className="h-4 w-4 text-orange-500"
+            />
+            <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
+              Produto ativo (visível no menu)
+            </label>
           </div>
 
           <div className="flex space-x-3 pt-4">

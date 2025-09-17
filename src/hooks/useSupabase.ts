@@ -28,25 +28,12 @@ export const useSupabaseData = () => {
     const pendingOrders = customerOrders.filter(order => order.status !== 'delivered' && order.status !== 'cancelled').length;
 
     const paidSpent = customerOrders.filter(order => order.payment_status === 'paid').reduce((sum, order) => sum + order.total, 0);
-    const pendingSpent = customerOrders.filter(order => order.payment_status !== 'paid').reduce((sum, order) => sum + order.total, 0);
+    const pendingSpent = customerOrders.filter(order => order.payment_status === 'pending').reduce((sum, order) => sum + order.total, 0);
+    const totalSpent = paidSpent + pendingSpent;
+    const totalOrders = customerOrders.length;
+    const isGiftEligible = totalSpent >= 150 && totalOrders >= 3;
 
-    const totalOrders = completedOrders + pendingOrders;
-    const totalSpent = paidSpent;
-
-    const { data: customerData, error: customerFetchError } = await supabase
-      .from('customers')
-      .select('is_gift_eligible')
-      .eq('id', customerId)
-      .single();
-    if (customerFetchError) console.error('Error fetching customer:', customerFetchError);
-
-    const isGiftEligible = paidSpent >= 300 && (!customerData || !customerData.is_gift_eligible);
-    if (isGiftEligible) {
-      await supabase.from('customers').update({ is_gift_eligible: true }).eq('id', customerId);
-      console.log(`Cliente ${customerId} agora é elegível para brinde!`);
-    }
-
-    const { error: customerError } = await supabase
+    await supabase
       .from('customers')
       .update({
         total_orders: totalOrders,
@@ -56,329 +43,212 @@ export const useSupabaseData = () => {
         pending_orders: pendingOrders,
         paid_spent: paidSpent,
         pending_spent: pendingSpent,
+        is_gift_eligible: isGiftEligible,
       })
       .eq('id', customerId);
-
-    if (customerError) {
-      console.error('Error updating customer totals:', customerError);
-    }
   };
 
-  const fetchData = useCallback(async () => {
-    if (!user) {
-      setCustomers([]);
-      setProducts([]);
-      setCategories([]);
-      setOrders([]);
-      setLoading(false);
-      return;
-    }
-
+  const addProduct = async (product: Omit<Product, 'id' | 'createdAt' | 'totalSold' | 'priceHistory'>) => {
+    setLoading(true);
     try {
-      setLoading(true);
-      setError(null);
-
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from('product_categories')
-        .select('*')
-        .order('name');
-      if (categoriesError) throw categoriesError;
-
-      const { data: productsData, error: productsError } = await supabase
+      const { data, error } = await supabase
         .from('products')
-        .select(`
-          *,
-          category:product_categories(name)
-        `)
-        .order('name');
-      if (productsError) throw productsError;
-
-      const { data: customersData, error: customersError } = await supabase
-        .from('customers')
-        .select('*')
-        .order('name');
-      if (customersError) throw customersError;
-
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          customer:customers(id, name, whatsapp, address, observations, delivery_preferences, created_at, total_orders, total_spent),
-          items:order_items(
-            quantity,
-            unit_price,
-            total,
-            product:products(id, name, description, category_id, price, image_url, weight, custom_packaging, is_active, created_at, total_sold)
-          )
-        `)
-        .order('created_at', { ascending: false });
-      if (ordersError) throw ordersError;
-
-      const transformedCategories: ProductCategory[] = categoriesData?.map(cat => ({
-        id: cat.id,
-        name: cat.name,
-        description: cat.description || '',
-      })) || [];
-
-      const transformedProducts: Product[] = productsData?.map(product => ({
-        id: product.id,
-        name: product.name,
-        description: product.description,
-        category: product.category as string,
-        price: product.price,
-        priceHistory: [{
-          date: new Date(product.created_at),
+        .insert({
+          name: product.name,
+          description: product.description,
           price: product.price,
-          channel: 'direct' as const
-        }],
-        image: product.image_url || undefined,
-        weight: product.weight || undefined,
-        customPackaging: product.custom_packaging,
-        isActive: product.is_active,
-        createdAt: new Date(product.created_at),
-        totalSold: product.total_sold,
-      })) || [];
+          weight: product.weight,
+          image_url: product.image,
+          is_active: product.isActive,
+          category_id: product.category,
+        })
+        .select();
 
-      const transformedCustomers: Customer[] = customersData?.map(customer => ({
-        id: customer.id,
-        name: customer.name,
-        whatsapp: customer.whatsapp,
-        email: customer.email ?? null,
-        address: customer.address,
-        observations: customer.observations ?? null,
-        deliveryPreferences: customer.delivery_preferences ?? null,
-        createdAt: new Date(customer.created_at),
-        totalOrders: customer.total_orders,
-        totalSpent: customer.total_spent,
-        completedOrders: customer.completed_orders,
-        cancelledOrders: customer.cancelled_orders,
-        pendingOrders: customer.pending_orders,
-        paidSpent: customer.paid_spent,
-        pendingSpent: customer.pending_spent,
-        isGiftEligible: customer.is_gift_eligible,
-      })) || [];
-      
-      type ProductRaw = {
-        id: string;
-        name: string;
-        description: string;
-        category_id: string;
-        price: number;
-        image_url: string | null;
-        weight: number | null;
-        custom_packaging: boolean;
-        is_active: boolean;
-        created_at: string;
-        total_sold: number;
-      };
-      
-      type OrderItemRaw = {
-        product: ProductRaw;
-        quantity: number;
-        unit_price: number;
-        total: number;
-      };
+      if (error) throw error;
 
-      const transformedOrders: Order[] = ordersData?.map(order => ({
-        id: order.id,
-        order_number: order.order_number,
-        customerId: order.customer_id,
-        customer: {
-          id: order.customer.id,
-          name: order.customer.name,
-          whatsapp: order.customer.whatsapp,
-          email: order.customer.email ?? null,
-          address: order.customer.address,
-          observations: order.customer.observations ?? null,
-          deliveryPreferences: order.customer.delivery_preferences ?? null,
-          createdAt: new Date(order.customer.created_at),
-          totalOrders: order.customer.total_orders,
-          totalSpent: order.customer.total_spent,
-          completedOrders: order.customer.completed_orders,
-          cancelledOrders: order.customer.cancelled_orders,
-          pendingOrders: order.customer.pending_orders,
-          paidSpent: order.customer.paid_spent,
-          pendingSpent: order.customer.pending_spent,
-          isGiftEligible: order.customer.is_gift_eligible,
-        },
-        items: order.items?.map((item: OrderItemRaw) => ({
-          productId: item.product.id,
-          product: {
-            id: item.product.id,
-            name: item.product.name,
-            description: item.product.description,
-            category: item.product.category_id,
-            price: item.product.price,
-            priceHistory: [],
-            image: item.product.image_url || undefined,
-            weight: item.product.weight || undefined,
-            customPackaging: item.product.custom_packaging,
-            isActive: item.product.is_active,
-            createdAt: new Date(item.product.created_at),
-            totalSold: item.product.total_sold,
-          },
-          quantity: item.quantity,
-          unitPrice: item.unit_price,
-          total: item.total,
-        })) || [],
-        subtotal: order.subtotal,
-        deliveryFee: order.delivery_fee,
-        total: order.total,
-        status: order.status as Order['status'],
-        paymentStatus: order.payment_status as Order['paymentStatus'],
-        paymentMethod: order.payment_method as Order['paymentMethod'],
-        deliveryMethod: order.delivery_method as Order['deliveryMethod'],
-        salesChannel: order.sales_channel as Order['salesChannel'],
-        orderDate: new Date(order.created_at),
-        estimatedDelivery: new Date(order.estimated_delivery),
-        completedAt: new Date(order.completed_at),
-        notes: order.notes ?? null,
-      })) || [];
-
-
-      setCategories(transformedCategories);
-      setProducts(transformedProducts);
-      setCustomers(transformedCustomers);
-      setOrders(transformedOrders);
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Ocorreu um erro desconhecido.');
+      if (data) {
+        const newProduct = { ...product, id: data[0].id, createdAt: new Date(), totalSold: 0, priceHistory: [] };
+        setProducts(prevProducts => [...prevProducts, newProduct]);
       }
-      console.error('Error in fetchData:', err);
+    } catch (err) {
+      console.error('Error adding product:', err);
+      // throw err;
     } finally {
       setLoading(false);
     }
-  }, [user]); // Adicionando useCallback e a dependência `user`
-
-  const addCustomer = async (customerData: Omit<Customer, 'id' | 'createdAt' | 'totalOrders' | 'totalSpent' | 'isGiftEligible' | 'completedOrders' | 'cancelledOrders' | 'pendingOrders' | 'paidSpent' | 'pendingSpent'>) => {
-    try {
-      const newCustomer = {
-        ...customerData,
-        delivery_preferences: customerData.deliveryPreferences,
-      };
-
-      const { data, error } = await supabase.from('customers').insert(newCustomer).select().single();
-      if (error) throw error;
-      await fetchData();
-      return data;
-    } catch (err) {
-      console.error('Error adding customer:', err);
-      throw err;
-    }
   };
 
-  const updateCustomer = async (id: string, customerData: Partial<Customer>) => {
+  const updateProduct = async (id: string, updates: Partial<Product>) => {
+    setLoading(true);
     try {
-      const { error } = await supabase.from('customers').update(customerData).eq('id', id);
-      if (error) throw error;
-      await fetchData();
-    } catch (err) {
-      console.error('Error updating customer:', err);
-      throw err;
-    }
-  };
+      const { error } = await supabase
+        .from('products')
+        .update({
+          name: updates.name,
+          description: updates.description,
+          price: updates.price,
+          weight: updates.weight,
+          image_url: updates.image,
+          is_active: updates.isActive,
+          category_id: updates.category,
+        })
+        .eq('id', id);
 
-  const addProduct = async (productData: Omit<Product, 'id' | 'createdAt' | 'totalSold' | 'category'> & { categoryId: string }) => {
-    try {
-      const newProduct = {
-        ...productData,
-        total_sold: 0,
-        price_history: productData.priceHistory,
-        category_id: productData.categoryId
-      };
-      const { error } = await supabase.from('products').insert(newProduct);
       if (error) throw error;
-      await fetchData();
-    } catch (err) {
-      console.error('Error adding product:', err);
-      throw err;
-    }
-  };
-
-  const updateProduct = async (id: string, productData: Partial<Product>) => {
-    try {
-      const { error } = await supabase.from('products').update(productData).eq('id', id);
-      if (error) throw error;
-      await fetchData();
+      
+      setProducts(prevProducts =>
+        prevProducts.map(p =>
+          p.id === id ? { ...p, ...updates } : p
+        )
+      );
     } catch (err) {
       console.error('Error updating product:', err);
       throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const deleteProduct = async (id: string) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setProducts(prevProducts => prevProducts.filter(product => product.id !== id));
+    } catch (err) {
+      console.error('Error deleting product:', err);
+      throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const addOrder = async (
-  orderData: Omit<Order, 'id' | 'orderDate' | 'customer' | 'order_number'> & {
+  const addCustomer = async (customer: Omit<Customer, 'id' | 'createdAt' | 'isGiftEligible' | 'totalOrders' | 'totalSpent' | 'completedOrders' | 'cancelledOrders' | 'pendingOrders' | 'paidSpent' | 'pendingSpent'>) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('customers')
+        .insert({
+          name: customer.name,
+          whatsapp: customer.whatsapp,
+          email: customer.email,
+          address: customer.address,
+          observations: customer.observations,
+          delivery_preferences: customer.deliveryPreferences,
+        })
+        .select();
+
+      if (error) throw error;
+
+      if (data) {
+        const newCustomer = {
+          ...customer,
+          id: data[0].id,
+          createdAt: new Date(),
+          isGiftEligible: false,
+          totalOrders: 0,
+          totalSpent: 0,
+          completedOrders: 0,
+          cancelledOrders: 0,
+          pendingOrders: 0,
+          paidSpent: 0,
+          pendingSpent: 0,
+        };
+        setCustomers(prevCustomers => [...prevCustomers, newCustomer]);
+      }
+    } catch (err) {
+      console.error('Error adding customer:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const updateCustomer = async (id: string, customer: Partial<Customer>) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('customers')
+        .update({
+          name: customer.name,
+          whatsapp: customer.whatsapp,
+          email: customer.email,
+          address: customer.address,
+          observations: customer.observations,
+          delivery_preferences: customer.deliveryPreferences,
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setCustomers(prevCustomers => prevCustomers.map(c => c.id === id ? { ...c, ...customer } : c));
+    } catch (err) {
+      console.error('Error updating customer:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addOrder = async (order: Omit<Order, 'id' | 'orderDate' | 'customer' | 'order_number'> & {
     items: OrderItem[];
     order_number?: number;
-  }
-) => {
+  }) => {
+    setLoading(true);
     try {
-      // 1. Obter e atualizar o próximo número do contador
-      const { data: counter, error: counterError } = await supabase
-        .from('counters')
-        .select('last_number')
-        .eq('name', 'order')
-        .single();
-      if (counterError) {
-        throw new Error('Erro ao buscar o contador de pedidos.');
-      }
-      
-      const nextOrderNumber = (counter.last_number || 0) + 1;
-      
-      const { error: updateCounterError } = await supabase
-        .from('counters')
-        .update({ last_number: nextOrderNumber })
-        .eq('name', 'order');
-      if (updateCounterError) {
-        throw new Error('Erro ao atualizar o contador de pedidos.');
-      }
-      
-      // 2. Preparar os dados para a inserção do pedido
-      const orderToInsert = {
-        ...orderData,
-        order_number: nextOrderNumber,
-        estimated_delivery: orderData.estimatedDelivery?.toISOString(),
-      };
-      
-      // 3. Inserir o novo pedido
-      const { data: orderResult, error: orderError } = await supabase
+      const { data, error } = await supabase
         .from('orders')
-        .insert(orderToInsert)
-        .select()
-        .single();
-      if (orderError) throw orderError;
-      
-      // 4. Inserir os itens do pedido
-      const orderItems = orderData.items.map(item => ({
-        order_id: orderResult.id,
-        product_id: item.productId,
-        quantity: item.quantity,
-        unit_price: item.unitPrice,
-        total: item.total,
-      }));
+        .insert({
+          customer_id: order.customerId,
+          items: order.items,
+          subtotal: order.subtotal,
+          delivery_fee: order.deliveryFee,
+          total: order.total,
+          status: order.status,
+          payment_status: order.paymentStatus,
+          payment_method: order.paymentMethod,
+          delivery_method: order.deliveryMethod,
+          notes: order.notes,
+          estimated_delivery: order.estimatedDelivery?.toISOString(),
+          order_number: order.order_number,
+        })
+        .select();
 
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems);
-
-      if (itemsError) throw itemsError;
-
-      // 5. Atualizar totais do cliente
-      await updateCustomerTotals(orderData.customerId);
+      if (error) throw error;
       
-      // 6. Atualizar os dados locais
-      await fetchData();
-      
-      return orderResult;
+      if (data) {
+        const { data: customerData, error: customerError } = await supabase
+          .from('customers')
+          .select('*')
+          .eq('id', order.customerId)
+          .single();
+
+        if (customerError) throw customerError;
+
+        const newOrder = {
+          ...order,
+          id: data[0].id,
+          orderDate: new Date(data[0].order_date),
+          customer: customerData,
+        };
+        setOrders(prevOrders => [...prevOrders, newOrder]);
+        await updateCustomerTotals(order.customerId);
+      }
     } catch (err) {
       console.error('Error adding order:', err);
       throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
   const updateOrder = async (id: string, orderData: Partial<Order>) => {
+    setLoading(true);
     try {
       const { error } = await supabase
         .from('orders')
@@ -395,7 +265,6 @@ export const useSupabaseData = () => {
 
       if (error) throw error;
 
-      // Refetch customer totals after order update
       const { data: updatedOrder, error: fetchError } = await supabase
         .from('orders')
         .select('customer_id')
@@ -412,8 +281,87 @@ export const useSupabaseData = () => {
     } catch (err) {
       console.error('Error updating order:', err);
       throw err;
+    } finally {
+      setLoading(false);
     }
   };
+
+// ... (código anterior)
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+      const [
+        { data: customersData, error: customersError },
+        { data: productsData, error: productsError },
+        { data: categoriesData, error: categoriesError },
+        { data: ordersData, error: ordersError },
+      ] = await Promise.all([
+        supabase.from('customers').select('*').order('created_at', { ascending: false }),
+        supabase.from('products').select('*').order('created_at', { ascending: false }),
+        supabase.from('product_categories').select('*').order('name'),
+        supabase.from('orders').select('*, customer:customers(*)').order('created_at', { ascending: false }), // ✅ Corrigido para 'created_at'
+      ]);
+
+      if (customersError) throw customersError;
+      if (productsError) throw productsError;
+      if (categoriesError) throw categoriesError;
+      if (ordersError) throw ordersError;
+      
+      const formattedCustomers = customersData.map(c => ({
+        ...c,
+        isGiftEligible: c.is_gift_eligible,
+        totalOrders: c.total_orders,
+        totalSpent: c.total_spent,
+        completedOrders: c.completed_orders,
+        cancelledOrders: c.cancelled_orders,
+        pendingOrders: c.pending_orders,
+        paidSpent: c.paid_spent,
+        pendingSpent: c.pending_spent,
+        deliveryPreferences: c.delivery_preferences,
+      }));
+      
+      const formattedProducts = productsData.map(p => ({
+        ...p,
+        isActive: p.is_active,
+        priceHistory: p.price_history || [],
+        totalSold: p.total_sold,
+        createdAt: new Date(p.created_at),
+        image: p.image_url,
+        category: p.category_id,
+      }));
+
+      const formattedOrders = ordersData.map(o => ({
+        ...o,
+        orderNumber: o.order_number ?? 0,
+        orderDate: new Date(o.created_at), // ✅ Usando created_at para a data do pedido
+        customerId: o.customer_id,
+        deliveryFee: o.delivery_fee,
+        paymentStatus: o.payment_status,
+        paymentMethod: o.payment_method,
+        deliveryMethod: o.delivery_method,
+        estimatedDelivery: o.estimated_delivery ? new Date(o.estimated_delivery) : null,
+        completedAt: o.completed_at ? new Date(o.completed_at) : null,
+      }));
+
+      setCustomers(formattedCustomers);
+      setProducts(formattedProducts);
+      setCategories(categoriesData);
+      setOrders(formattedOrders);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError('Failed to fetch data');
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+// ... (resto do código)
 
   useEffect(() => {
     if (user) {
@@ -438,6 +386,7 @@ export const useSupabaseData = () => {
     updateCustomer,
     addProduct,
     updateProduct,
+    deleteProduct, // ✅ Retorne a nova função de exclusão
     addOrder,
     updateOrder,
     refetch: fetchData,

@@ -44,126 +44,91 @@ const DigitalMenu: React.FC = () => {
   };
 
   const getCartItemCount = () => {
-    return Object.values(cart).reduce((sum, quantity) => sum + quantity, 0);
+    return Object.values(cart).reduce((total, quantity) => total + quantity, 0);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50">
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-gradient-to-r from-orange-400 to-amber-500 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Package className="w-10 h-10 text-white" />
-          </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Panetto di Cris</h1>
-          <p className="text-lg text-gray-600">Deliciosos panetones artesanais</p>
-        </div>
-
-        {/* Category Tabs */}
-        <div className="flex flex-wrap justify-center gap-2 mb-8">
-          <button
-            onClick={() => setSelectedCategory('all')}
-            className={`px-6 py-3 rounded-full font-medium transition-all duration-200 ${selectedCategory === 'all'
-              ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg'
-              : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
-              }`}
-          >
-            Todos os Produtos
-          </button>
-
-          {categories.map((category) => (
+    <div className="bg-gray-50 min-h-screen pb-24">
+      {/* Header com Categorias */}
+      <header className="sticky top-0 bg-white shadow-sm z-10">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center space-y-2 sm:space-y-0">
+          <h1 className="text-xl font-bold text-gray-800">Menu Digital</h1>
+          <nav className="flex space-x-2 overflow-x-auto pb-2 sm:pb-0">
             <button
-              key={category.id}
-              onClick={() => setSelectedCategory(category.id)}
-              className={`px-6 py-3 rounded-full font-medium transition-all duration-200 ${selectedCategory === category.id
-                ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg'
-                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
+              onClick={() => setSelectedCategory('all')}
+              className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${selectedCategory === 'all' ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-200 text-gray-700'
                 }`}
             >
-              {category.name}
+              Todos
             </button>
-          ))}
+            {categories.map(category => (
+              <button
+                key={category.id}
+                onClick={() => setSelectedCategory(category.id)}
+                className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${selectedCategory === category.id ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-200 text-gray-700'
+                  }`}
+              >
+                {category.name}
+              </button>
+            ))}
+          </nav>
         </div>
+      </header>
 
-        {/* Products Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {filteredProducts.map((product) => (
-            <div key={product.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
-              {/* Product Image */}
-              <div className="h-48 bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center">
-                {product.image ? (
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <Package className="w-16 h-16 text-orange-300" />
-                )}
-              </div>
-
-              {/* Product Info */}
-              <div className="p-6">
-                <div className="mb-3">
-                  <span className="inline-block px-3 py-1 bg-orange-100 text-orange-800 text-sm font-medium rounded-full mb-2">
+      {/* Product Grid */}
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        {filteredProducts.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredProducts.map(product => (
+              <div key={product.id} className="bg-white rounded-2xl shadow-lg overflow-hidden flex flex-col">
+                <img
+                  src={product.image || 'https://via.placeholder.com/400x300.png?text=Sem+Imagem'}
+                  alt={product.name}
+                  className="w-full h-48 object-cover object-center"
+                />
+                <div className="p-4 flex flex-col flex-grow">
+                  <span className="text-xs font-semibold uppercase text-gray-500 mb-1">
                     {getCategoryName(product.category)}
                   </span>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">{product.name}</h3>
-                  <p className="text-gray-600 text-sm mb-3">{product.description}</p>
-
-                  {product.weight && (
-                    <p className="text-sm text-gray-500 mb-2">Peso: {product.weight}g</p>
-                  )}
-
-                  {product.customPackaging && (
-                    <span className="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                      Embalagem personalizada disponível
+                  <h3 className="text-lg font-bold text-gray-900 mb-1 leading-tight">{product.name}</h3>
+                  <p className="text-sm text-gray-600 mb-2 flex-grow">{product.description}</p>
+                  <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-100">
+                    <span className="text-xl font-bold text-gray-900">
+                      R$ {product.price.toFixed(2)}
                     </span>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="text-2xl font-bold text-gray-900">
-                    R$ {product.price.toFixed(2)}
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    {cart[product.id] ? (
-                      <>
+                    {cart[product.id] > 0 ? (
+                      <div className="flex items-center space-x-2">
                         <button
                           onClick={() => removeFromCart(product.id)}
-                          className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center transition-colors"
+                          className="p-1 rounded-full text-gray-600 hover:bg-gray-200 transition-colors"
                         >
-                          <Minus className="w-4 h-4" />
+                          <Minus size={20} />
                         </button>
-                        <span className="w-8 text-center font-semibold">
-                          {cart[product.id]}
-                        </span>
+                        <span className="text-lg font-semibold">{cart[product.id]}</span>
                         <button
                           onClick={() => addToCart(product.id)}
-                          className="w-8 h-8 bg-orange-500 hover:bg-orange-600 text-white rounded-full flex items-center justify-center transition-colors"
+                          className="p-1 rounded-full text-orange-600 bg-orange-100 hover:bg-orange-200 transition-colors"
                         >
-                          <Plus className="w-4 h-4" />
+                          <Plus size={20} />
                         </button>
-                      </>
+                      </div>
                     ) : (
                       <button
                         onClick={() => addToCart(product.id)}
-                        className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-4 py-2 rounded-full hover:from-orange-600 hover:to-amber-600 transition-all duration-200 shadow-lg"
+                        className="flex items-center space-x-1 px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg font-semibold hover:from-orange-600 hover:to-amber-600 transition-all duration-200"
                       >
-                        Adicionar
+                        <Plus size={16} />
+                        <span>Adicionar</span>
                       </button>
                     )}
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-
-        {filteredProducts.length === 0 && (
-          <div className="text-center py-12">
-            <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center p-12 bg-white rounded-xl shadow-lg">
+            <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum produto disponível</h3>
             <p className="text-gray-600">
               {selectedCategory === 'all'

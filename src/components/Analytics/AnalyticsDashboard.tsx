@@ -11,8 +11,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  // LineChart,
-  // Line,
   Area,
   AreaChart
 } from 'recharts';
@@ -46,6 +44,7 @@ const AnalyticsDashboard: React.FC = () => {
     const currentMonthOrders = orders.filter(order => {
       if (!order.orderDate) return false;
       const orderDate = new Date(order.orderDate);
+      if (isNaN(orderDate.getTime())) return false; // ✅ Adicionada verificação de data inválida
       return orderDate >= currentMonth.start && orderDate <= currentMonth.end;
     });
 
@@ -90,6 +89,7 @@ const AnalyticsDashboard: React.FC = () => {
       const dayOrders = orders.filter(order => {
         if (!order.orderDate) return false;
         const orderDate = new Date(order.orderDate);
+        if (isNaN(orderDate.getTime())) return false; // ✅ Adicionada verificação de data inválida
         return format(orderDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
       });
 

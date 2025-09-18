@@ -48,8 +48,9 @@ const Dashboard: React.FC = () => {
 
     // Pedidos do mês atual
     const currentMonthOrders = orders.filter((order) => {
-      if (!order.orderDate) return false; // ✅ Ignora pedidos sem data
+      if (!order.orderDate) return false;
       const orderDate = new Date(order.orderDate);
+      if (isNaN(orderDate.getTime())) return false;
       return orderDate >= currentMonth.start && orderDate <= currentMonth.end;
     });
 
@@ -94,8 +95,9 @@ const Dashboard: React.FC = () => {
       end: now,
     }).map((date) => {
       const dayOrders = orders.filter((order) => {
-        if (!order.orderDate) return false; // ✅ Corrigido — linha 96
+        if (!order.orderDate) return false;
         const orderDate = new Date(order.orderDate);
+        if (isNaN(orderDate.getTime())) return false;
         return format(orderDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
       });
 
@@ -313,7 +315,7 @@ const Dashboard: React.FC = () => {
                 dataKey="value"
                 label={({ name, value }) => `${name}: ${value}`}
               >
-                {analytics.salesChannels.map((entry, index) => (
+                {analytics.ordersByStatus.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>

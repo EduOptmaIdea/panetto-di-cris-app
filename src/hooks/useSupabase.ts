@@ -37,13 +37,19 @@ export const useSupabaseData = () => {
     setError(null);
     try {
       const [{ data: categoriesData, error: categoriesError },
-        { data: productsData, error: productsError }] = await Promise.all([
-        supabase.from('product_categories').select('*'),
-        supabase.from('products').select('*')
+        { data: productsData, error: productsError },
+        { data: customersData, error: customersError },
+        { data: ordersData, error: ordersError }] = await Promise.all([
+        supabase.from('product_categories').select('*').order('name', { ascending: true }),
+        supabase.from('products').select('*').order('name', { ascending: true }),
+        supabase.from('customers').select('*').order('name', { ascending: true }),
+        supabase.from('orders').select('*, customer:customer_id(*), items:order_items(*)').order('created_at', { ascending: false })
       ]);
 
       if (categoriesError) throw categoriesError;
       if (productsError) throw productsError;
+      if (customersError) throw customersError;
+      if (ordersError) throw ordersError;
       
       const productCounts = new Map<string, number>();
       if (productsData) {
@@ -84,8 +90,42 @@ export const useSupabaseData = () => {
         isActive: p.is_active,
       }));
 
+      const formattedCustomers = customersData.map(c => ({
+        id: c.id,
+        name: c.name,
+        whatsapp: c.whatsapp,
+        email: c.email,
+        address: c.address,
+        observations: c.observations,
+        deliveryPreferences: c.delivery_preferences,
+        createdAt: new Date(c.created_at),
+        totalOrders: c.total_orders,
+        totalSpent: c.total_spent,
+        isGiftEligible: c.is_gift_eligible,
+        completedOrders: c.completed_orders,
+        cancelledOrders: c.cancelled_orders,
+        pendingOrders: c.pending_orders,
+        paidSpent: c.paid_spent,
+        pendingSpent: c.pending_spent,
+      }));
+
+      const formattedOrders = ordersData.map(o => ({
+        ...o,
+        orderNumber: o.order_number,
+        orderDate: new Date(o.order_date),
+        customerId: o.customer_id,
+        deliveryFee: o.delivery_fee,
+        paymentStatus: o.payment_status,
+        paymentMethod: o.payment_method,
+        deliveryMethod: o.delivery_method,
+        estimatedDelivery: o.estimated_delivery ? new Date(o.estimated_delivery) : null,
+        completedAt: o.completed_at ? new Date(o.completed_at) : null,
+      }));
+
       setProducts(formattedProducts);
       setCategories(formattedCategories);
+      setCustomers(formattedCustomers);
+      setOrders(formattedOrders);
     } catch (err) {
       console.error('Error fetching data:', err);
       setError('Failed to fetch data');
@@ -93,6 +133,40 @@ export const useSupabaseData = () => {
       setLoading(false);
     }
   }, [user]);
+
+  const updateCustomerTotals = useCallback(async (customerId: string) => {
+    const { data: customerOrders, error: ordersError } = await supabase
+      .from('orders')
+      .select('status, total, payment_status')
+      .eq('customer_id', customerId);
+
+    if (ordersError) {
+      console.error('Error fetching customer orders for total calculation:', ordersError);
+      return;
+    }
+
+    const completedOrders = customerOrders.filter(order => order.status === 'delivered').length;
+    const cancelledOrders = customerOrders.filter(order => order.status === 'cancelled').length;
+    const pendingOrders = customerOrders.filter(order => order.status !== 'delivered' && order.status !== 'cancelled').length;
+
+    const paidSpent = customerOrders.filter(order => order.payment_status === 'paid').reduce((sum, order) => sum + order.total, 0);
+    const pendingSpent = customerOrders.filter(order => order.payment_status === 'pending').reduce((sum, order) => sum + order.total, 0);
+
+    const { error: updateError } = await supabase
+      .from('customers')
+      .update({
+        completed_orders: completedOrders,
+        cancelled_orders: cancelledOrders,
+        pending_orders: pendingOrders,
+        paid_spent: paidSpent,
+        pending_spent: pendingSpent,
+      })
+      .eq('id', customerId);
+
+    if (updateError) {
+      console.error('Error updating customer totals:', updateError);
+    }
+  }, []);
 
   const addCategory = useCallback(async (category: Pick<ProductCategory, 'name' | 'description' | 'isActive'>) => {
     try {
@@ -220,40 +294,6 @@ return;
     }
   }, [fetchData]);
 
-  const updateCustomerTotals = async (customerId: string) => {
-    const { data: customerOrders, error: ordersError } = await supabase
-      .from('orders')
-      .select('status, total, payment_status')
-      .eq('customer_id', customerId);
-
-    if (ordersError) {
-      console.error('Error fetching customer orders for total calculation:', ordersError);
-      return;
-    }
-
-    const completedOrders = customerOrders.filter(order => order.status === 'delivered').length;
-    const cancelledOrders = customerOrders.filter(order => order.status === 'cancelled').length;
-    const pendingOrders = customerOrders.filter(order => order.status !== 'delivered' && order.status !== 'cancelled').length;
-
-    const paidSpent = customerOrders.filter(order => order.payment_status === 'paid').reduce((sum, order) => sum + order.total, 0);
-    const pendingSpent = customerOrders.filter(order => order.payment_status === 'pending').reduce((sum, order) => sum + order.total, 0);
-
-    const { error: updateError } = await supabase
-      .from('customers')
-      .update({
-        completed_orders: completedOrders,
-        cancelled_orders: cancelledOrders,
-        pending_orders: pendingOrders,
-        paid_spent: paidSpent,
-        pending_spent: pendingSpent,
-      })
-      .eq('id', customerId);
-
-    if (updateError) {
-      console.error('Error updating customer totals:', updateError);
-    }
-  };
-
   const addCustomer = useCallback(async (customer: Omit<Customer, 'id' | 'createdAt' | 'isGiftEligible' | 'totalOrders' | 'totalSpent' | 'completedOrders' | 'cancelledOrders' | 'pendingOrders' | 'paidSpent' | 'pendingSpent'>) => {
     try {
       const { error } = await supabase
@@ -295,7 +335,7 @@ return;
     }
   }, [fetchData]);
   
-const addOrder = useCallback(async (order: Omit<Order, 'id' | 'orderDate' | 'customer' | 'order_number'> & { items: OrderItem[]; order_number?: number }) => {
+  const addOrder = useCallback(async (order: Omit<Order, 'id' | 'orderDate' | 'customer' | 'order_number'> & { items: OrderItem[]; order_number?: number }) => {
     try {
       const { error } = await supabase
         .from('orders')
@@ -314,14 +354,14 @@ const addOrder = useCallback(async (order: Omit<Order, 'id' | 'orderDate' | 'cus
         });
       if (error) throw error;
       await fetchData();
-      await updateCustomerTotals(order.customerId); // ✅ Chamada da função para atualizar os totais
+      await updateCustomerTotals(order.customerId);
     } catch (err) {
       console.error('Error adding order:', err);
       throw err;
     }
-  }, [fetchData]);
+  }, [fetchData, updateCustomerTotals]);
 
-const updateOrder = useCallback(async (id: string, orderData: Partial<Order>) => {
+  const updateOrder = useCallback(async (id: string, orderData: Partial<Order>) => {
     try {
       const { error } = await supabase
         .from('orders')
@@ -338,7 +378,6 @@ const updateOrder = useCallback(async (id: string, orderData: Partial<Order>) =>
       if (error) throw error;
       await fetchData();
       
-      // ✅ Chamada da função para atualizar os totais
       const { data: updatedOrder, error: fetchError } = await supabase
         .from('orders')
         .select('customer_id')
@@ -352,7 +391,7 @@ const updateOrder = useCallback(async (id: string, orderData: Partial<Order>) =>
       console.error('Error updating order:', err);
       throw err;
     }
-  }, [fetchData]);
+  }, [fetchData, updateCustomerTotals]);
 
   useEffect(() => {
     if (user) {
@@ -372,9 +411,17 @@ const updateOrder = useCallback(async (id: string, orderData: Partial<Order>) =>
         })
         .subscribe();
 
+      const customersChannel = supabase
+        .channel('customers_changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => {
+          fetchData();
+        })
+        .subscribe();
+
       return () => {
         supabase.removeChannel(productChannel);
         supabase.removeChannel(categoriesChannel);
+        supabase.removeChannel(customersChannel);
       };
     } else {
       setCustomers([]);

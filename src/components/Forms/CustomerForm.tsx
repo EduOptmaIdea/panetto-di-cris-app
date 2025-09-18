@@ -96,7 +96,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
     deliveryPreferences: customer?.deliveryPreferences || '',
   });
 
-  // Atualiza o formulário quando o cliente muda
+  // ✅ Limpa o formulário para um novo cliente ou preenche para edição/visualização
   useEffect(() => {
     if (customer) {
       const parsedAddress = parseAddressFromString(customer.address);

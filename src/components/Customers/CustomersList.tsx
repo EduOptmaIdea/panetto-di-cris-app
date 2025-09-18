@@ -185,34 +185,36 @@ const CustomersList: React.FC = () => {
                     <div className="p-4 sm:p-6 bg-gray-100 border-t border-gray-200">
                       <h4 className="text-lg font-bold text-gray-800 mb-4">Últimos Pedidos</h4>
                       {customerOrders.length > 0 ? (
-                        <ul className="space-y-4">
-                          {customerOrders.map(order => (
-                            <li key={order.id} className="bg-white p-4 rounded-lg shadow-sm">
-                              <div className="flex justify-between items-center text-sm font-medium text-gray-900 mb-2">
-                                <span>Pedido #{order.order_number}</span>
-                                <span className="text-gray-500 text-xs">
-                                  {order.orderDate ? new Date(order.orderDate).toLocaleDateString('pt-BR') : 'Data não disponível'}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between text-sm">
-                                <div className="flex items-center space-x-4">
-                                  <div className="flex items-center space-x-1">
-                                    <ShoppingBag className="w-4 h-4 text-gray-500" />
-                                    <span>{order.items.length} itens</span>
+                        <div className="overflow-x-auto"> {/* ✅ Adicionado overflow-x-auto */}
+                          <ul className="space-y-4 min-w-max">
+                            {customerOrders.map(order => (
+                              <li key={order.id} className="bg-white p-4 rounded-lg shadow-sm">
+                                <div className="flex justify-between items-center text-sm font-medium text-gray-900 mb-2">
+                                  <span>Pedido #{order.order_number}</span> {/* ✅ Corrigido o nome da propriedade */}
+                                  <span className="text-gray-500 text-xs">
+                                    {order.orderDate ? new Date(order.orderDate).toLocaleDateString('pt-BR') : 'Data não disponível'}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                  <div className="flex items-center space-x-4">
+                                    <div className="flex items-center space-x-1">
+                                      <ShoppingBag className="w-4 h-4 text-gray-500" />
+                                      <span>{order.items.length} itens</span>
+                                    </div>
+                                    <div className="flex items-center space-x-1">
+                                      <DollarSign className="w-4 h-4 text-gray-500" />
+                                      <span>R$ {order.total.toFixed(2)}</span>
+                                    </div>
                                   </div>
-                                  <div className="flex items-center space-x-1">
-                                    <DollarSign className="w-4 h-4 text-gray-500" />
-                                    <span>R$ {order.total.toFixed(2)}</span>
+                                  <div className="space-x-2">
+                                    <span className={getStatusBadge(order.status)}>{order.status}</span>
+                                    <span className={getPaymentStatusBadge(order.paymentStatus)}>{order.paymentStatus}</span>
                                   </div>
                                 </div>
-                                <div className="space-x-2">
-                                  <span className={getStatusBadge(order.status)}>{order.status}</span>
-                                  <span className={getPaymentStatusBadge(order.paymentStatus)}>{order.paymentStatus}</span>
-                                </div>
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
                       ) : (
                         <p className="text-gray-500 text-sm italic">Este cliente não possui pedidos.</p>
                       )}
@@ -246,7 +248,7 @@ const CustomersList: React.FC = () => {
       <CustomerForm
         isOpen={showForm}
         onClose={handleCloseForm}
-        customer={(editingCustomer || viewingCustomer) ?? undefined} // ✅ Converte null para undefined
+        customer={(editingCustomer || viewingCustomer) ?? undefined}
         isEditing={!!editingCustomer}
         isViewing={!!viewingCustomer}
       />

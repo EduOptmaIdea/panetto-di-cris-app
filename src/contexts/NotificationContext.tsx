@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { v4 as uuidv4 } from 'uuid'; // ✅ Importação da função v4 da biblioteca uuid
 
 export interface Notification {
   id: string;
@@ -34,7 +35,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [permission, setPermission] = useState<NotificationPermission>('default');
 
-  // Verificar se o navegador suporta notificações
   const isSupported = 'Notification' in window;
 
   useEffect(() => {
@@ -43,7 +43,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, [isSupported]);
 
-  // Solicitar permissão para notificações
   const requestPermission = useCallback(async (): Promise<boolean> => {
     if (!isSupported) return false;
     try {
@@ -56,16 +55,15 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, [isSupported]);
 
-  // Envolver addNotification em useCallback
   const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
     const newNotification: Notification = {
       ...notification,
-      id: crypto.randomUUID(),
+      id: uuidv4(), // ✅ Substituído crypto.randomUUID() por uuidv4()
       timestamp: new Date(),
       read: false,
     };
     setNotifications(prev => [newNotification, ...prev]);
-    // Mostrar notificação do navegador se permitido
+
     if (permission === 'granted' && document.hidden) {
       try {
         const browserNotification = new Notification(notification.title, {
@@ -81,7 +79,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           }
           browserNotification.close();
         };
-        // Auto-fechar após 5 segundos
         setTimeout(() => {
           browserNotification.close();
         }, 5000);
@@ -91,7 +88,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, [permission]);
 
-  // Marcar como lida
   const markAsRead = (id: string) => {
     setNotifications(prev =>
       prev.map(notification =>
@@ -100,31 +96,25 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     );
   };
 
-  // Marcar todas como lidas
   const markAllAsRead = () => {
     setNotifications(prev =>
       prev.map(notification => ({ ...notification, read: true }))
     );
   };
 
-  // Remover notificação
   const removeNotification = (id: string) => {
     setNotifications(prev => prev.filter(notification => notification.id !== id));
   };
 
-  // Limpar todas
   const clearAll = () => {
     setNotifications([]);
   };
 
-  // Contar não lidas
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Escutar mudanças em tempo real no Supabase
   useEffect(() => {
     if (!user) return;
 
-    // Escutar novos pedidos
     const ordersSubscription = supabase
       .channel('orders-changes')
       .on(
@@ -142,7 +132,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             action: {
               label: 'Ver Pedido',
               onClick: () => {
-                // Navegar para a tela de pedidos
                 window.location.hash = '#orders';
               }
             }
@@ -179,7 +168,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       )
       .subscribe();
 
-    // Escutar novos clientes
     const customersSubscription = supabase
       .channel('customers-changes')
       .on(
@@ -199,17 +187,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       )
       .subscribe();
 
-    // Cleanup
     return () => {
       ordersSubscription.unsubscribe();
       customersSubscription.unsubscribe();
     };
   }, [user, addNotification]);
 
-  // Solicitar permissão automaticamente quando o usuário fizer login
   useEffect(() => {
     if (user && isSupported && permission === 'default') {
-      // Aguardar um pouco antes de solicitar para não ser intrusivo
       setTimeout(() => {
         requestPermission();
       }, 3000);

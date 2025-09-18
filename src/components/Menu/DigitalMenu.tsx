@@ -100,7 +100,7 @@ const DigitalMenu: React.FC = () => {
                   </div>
                   <div className="flex items-center justify-between mt-auto">
                     <span className="text-xl font-bold text-orange-600">
-                      R$ {product.price.toFixed(2)}
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.price)}
                     </span>
                     <div className="flex items-center space-x-2">
                       {cart[product.id] > 0 && (

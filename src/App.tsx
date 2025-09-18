@@ -11,7 +11,7 @@ import Dashboard from './components/Dashboard/Dashboard';
 import OrdersList from './components/Orders/OrdersList.tsx';
 import ProductsList from './components/Products/ProductsList';
 import CustomersList from './components/Customers/CustomersList';
-import CategoryManagement from './components/Category/CategoryManagement';
+import CategoriesList from './components/Categories/CategoriesList';
 import AnalyticsDashboard from './components/Analytics/AnalyticsDashboard';
 import DigitalMenu from './components/Menu/DigitalMenu';
 import PlaceholderView from './components/Placeholder/PlaceholderView';
@@ -48,7 +48,7 @@ const AppContent: React.FC = () => {
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/orders" element={<OrdersList />} />
                   <Route path="/products" element={<ProductsList />} />
-                  <Route path="/categories" element={<CategoryManagement />} />
+                  <Route path="/categories" element={<CategoriesList />} />
                   <Route path="/customers" element={<CustomersList />} />
                   <Route path="/analytics" element={<AnalyticsDashboard />} />
                   <Route path="/menu" element={<DigitalMenu />} />

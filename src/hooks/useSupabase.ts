@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './useAuth';
+import { useNotifications } from './useNotifications';
 import type { Customer, Product, ProductCategory, Order, OrderItem, PriceHistory} from '../types';
 
-// Define o tipo para os dados vindo do Supabase, que usam snake_case
 type SupabaseProductRow = {
   id: string;
   name: string;
@@ -16,23 +16,12 @@ type SupabaseProductRow = {
   is_active: boolean;
   created_at: string;
   total_sold: number;
+  custom_packaging: boolean;
 };
-
-{/*type SupabaseCategoryRow = {
-  id: string;
-  name: string;
-  description: string | null;
-  is_active: boolean;
-};
-
-type SupabaseProductCount = {
-  category_id: string;
-  count: number;
-};*/}
-
 
 export const useSupabaseData = () => {
   const { user } = useAuth();
+  const { addNotification } = useNotifications();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
@@ -41,8 +30,71 @@ export const useSupabaseData = () => {
   const [error, setError] = useState<string | null>(null);
   const [mostSoldCategory, setMostSoldCategory] = useState<ProductCategory | null>(null);
 
+  const fetchData = useCallback(async () => {
+    if (!user) return;
 
-  const addCategory = async (category: Pick<ProductCategory, 'name' | 'description' | 'isActive'>) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [{ data: categoriesData, error: categoriesError },
+        { data: productsData, error: productsError }] = await Promise.all([
+        supabase.from('product_categories').select('*'),
+        supabase.from('products').select('*')
+      ]);
+
+      if (categoriesError) throw categoriesError;
+      if (productsError) throw productsError;
+      
+      const productCounts = new Map<string, number>();
+      if (productsData) {
+        productsData.forEach(p => {
+          productCounts.set(p.category_id, (productCounts.get(p.category_id) || 0) + 1);
+        });
+      }
+
+      const formattedCategories = categoriesData.map(c => ({
+        id: c.id,
+        name: c.name,
+        description: c.description,
+        isActive: c.is_active,
+        productCount: productCounts.get(c.id) || 0,
+      }));
+
+      const sortedProductsBySales = [...productsData].sort((a,b) => b.total_sold - a.total_sold);
+      const mostSoldProduct = sortedProductsBySales.length > 0 ? sortedProductsBySales[0] : null;
+      
+      let mostSoldCat = null;
+      if (mostSoldProduct) {
+        mostSoldCat = formattedCategories.find(c => c.id === mostSoldProduct.category_id) || null;
+      }
+      setMostSoldCategory(mostSoldCat);
+
+      const formattedProducts = productsData.map((p: SupabaseProductRow) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        price: p.price,
+        weight: p.weight,
+        customPackaging: p.custom_packaging,
+        priceHistory: p.price_history || [],
+        totalSold: p.total_sold,
+        createdAt: new Date(p.created_at),
+        image: p.image_url,
+        category: p.category_id,
+        isActive: p.is_active,
+      }));
+
+      setProducts(formattedProducts);
+      setCategories(formattedCategories);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError('Failed to fetch data');
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  const addCategory = useCallback(async (category: Pick<ProductCategory, 'name' | 'description' | 'isActive'>) => {
     try {
       const { error } = await supabase.from('product_categories').insert({
         name: category.name,
@@ -55,9 +107,9 @@ export const useSupabaseData = () => {
       console.error('Error adding category:', err);
       throw err;
     }
-  };
+  }, [fetchData]);
 
-  const updateCategory = async (id: string, updates: Partial<ProductCategory>) => {
+  const updateCategory = useCallback(async (id: string, updates: Partial<ProductCategory>) => {
     try {
       const { error } = await supabase
         .from('product_categories')
@@ -74,25 +126,99 @@ export const useSupabaseData = () => {
       console.error('Error updating category:', err);
       throw err;
     }
-  };
+  }, [fetchData]);
 
-  const deleteCategory = async (id: string) => {
-    setLoading(true);
+  const deleteCategory = useCallback(async (id: string) => {
     try {
-      const { error } = await supabase
-      .from('product_categories')
-      .delete()
-      .eq('id', id);
+      const { count, error: countError } = await supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true })
+        .eq('category_id', id);
 
+      if (countError) throw countError;
+
+      if (count && count > 0) {
+        addNotification({
+  title: 'Erro ao excluir categoria',
+  message: `Não é possível excluir a categoria com ${count} produto(s) vinculado(s).`,
+  type: 'error',
+});
+return;
+      }
+
+      const { error } = await supabase.from('product_categories').delete().eq('id', id);
       if (error) throw error;
-
+      await fetchData();
+      addNotification({
+  title: 'Categoria excluída',
+  message: 'Categoria excluída com sucesso!',
+  type: 'success',
+});
     } catch (err) {
       console.error('Error deleting category:', err);
-      throw err;
-    } finally {
-      setLoading(false);
+      addNotification({
+  title: 'Erro ao excluir categoria',
+  message: 'Falha ao excluir categoria.',
+  type: 'error',
+});
     }
-  };
+  }, [fetchData, addNotification]);
+
+  const addProduct = useCallback(async (product: Omit<Product, 'id' | 'createdAt' | 'totalSold' | 'priceHistory' | 'customPackaging'>) => {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .insert({
+          name: product.name,
+          description: product.description,
+          price: product.price,
+          weight: product.weight,
+          image_url: product.image,
+          is_active: product.isActive,
+          category_id: product.category,
+        });
+
+      if (error) throw error;
+      await fetchData();
+    } catch (err) {
+      console.error('Error adding product:', err);
+      throw err;
+    }
+  }, [fetchData]);
+
+  const updateProduct = useCallback(async (id: string, product: Partial<Product>) => {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({
+          name: product.name,
+          description: product.description,
+          price: product.price,
+          weight: product.weight,
+          image_url: product.image,
+          is_active: product.isActive,
+          category_id: product.category,
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      await fetchData();
+    } catch (err) {
+      console.error('Error updating product:', err);
+      throw err;
+    }
+  }, [fetchData]);
+
+  const deleteProduct = useCallback(async (id: string) => {
+    try {
+      const { error } = await supabase.from('products').delete().eq('id', id);
+      if (error) throw error;
+      await fetchData();
+    } catch (err) {
+      console.error('Error deleting product:', err);
+      throw err;
+    }
+  }, [fetchData]);
 
   const updateCustomerTotals = async (customerId: string) => {
     const { data: customerOrders, error: ordersError } = await supabase
@@ -111,97 +237,24 @@ export const useSupabaseData = () => {
 
     const paidSpent = customerOrders.filter(order => order.payment_status === 'paid').reduce((sum, order) => sum + order.total, 0);
     const pendingSpent = customerOrders.filter(order => order.payment_status === 'pending').reduce((sum, order) => sum + order.total, 0);
-    const totalSpent = paidSpent + pendingSpent;
-    const totalOrders = customerOrders.length;
-    const isGiftEligible = totalSpent >= 150 && totalOrders >= 3;
 
-    await supabase
+    const { error: updateError } = await supabase
       .from('customers')
       .update({
-        total_orders: totalOrders,
-        total_spent: totalSpent,
         completed_orders: completedOrders,
         cancelled_orders: cancelledOrders,
         pending_orders: pendingOrders,
         paid_spent: paidSpent,
         pending_spent: pendingSpent,
-        is_gift_eligible: isGiftEligible,
       })
       .eq('id', customerId);
-  };
 
-  const addProduct = async (product: Omit<Product, 'id' | 'createdAt' | 'totalSold' | 'priceHistory'>) => {
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from('products')
-        .insert({
-          name: product.name,
-          description: product.description,
-          price: product.price,
-          weight: product.weight,
-          image_url: product.image,
-          is_active: product.isActive,
-          category_id: product.category,
-        })
-        .select();
-
-      if (error) throw error;
-      
-    } catch (err) {
-      console.error('Error adding product:', err);
-      throw err;
-    } finally {
-      setLoading(false);
+    if (updateError) {
+      console.error('Error updating customer totals:', updateError);
     }
   };
 
-  const updateProduct = async (id: string, updates: Partial<Product>) => {
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from('products')
-        .update({
-          name: updates.name,
-          description: updates.description,
-          price: updates.price,
-          weight: updates.weight,
-          image_url: updates.image,
-          is_active: updates.isActive,
-          category_id: updates.category,
-        })
-        .eq('id', id);
-
-      if (error) throw error;
-      
-    } catch (err) {
-      console.error('Error updating product:', err);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const deleteProduct = async (id: string) => {
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-      
-    } catch (err) {
-      console.error('Error deleting product:', err);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const addCustomer = async (customer: Omit<Customer, 'id' | 'createdAt' | 'isGiftEligible' | 'totalOrders' | 'totalSpent' | 'completedOrders' | 'cancelledOrders' | 'pendingOrders' | 'paidSpent' | 'pendingSpent'>) => {
-    setLoading(true);
+  const addCustomer = useCallback(async (customer: Omit<Customer, 'id' | 'createdAt' | 'isGiftEligible' | 'totalOrders' | 'totalSpent' | 'completedOrders' | 'cancelledOrders' | 'pendingOrders' | 'paidSpent' | 'pendingSpent'>) => {
     try {
       const { error } = await supabase
         .from('customers')
@@ -212,21 +265,16 @@ export const useSupabaseData = () => {
           address: customer.address,
           observations: customer.observations,
           delivery_preferences: customer.deliveryPreferences,
-        })
-        .select();
-
+        });
       if (error) throw error;
-
+      await fetchData();
     } catch (err) {
       console.error('Error adding customer:', err);
       throw err;
-    } finally {
-      setLoading(false);
     }
-  };
-  
-  const updateCustomer = async (id: string, customer: Partial<Customer>) => {
-    setLoading(true);
+  }, [fetchData]);
+
+  const updateCustomer = useCallback(async (id: string, customer: Partial<Customer>) => {
     try {
       const { error } = await supabase
         .from('customers')
@@ -239,54 +287,41 @@ export const useSupabaseData = () => {
           delivery_preferences: customer.deliveryPreferences,
         })
         .eq('id', id);
-
       if (error) throw error;
-
+      await fetchData();
     } catch (err) {
       console.error('Error updating customer:', err);
       throw err;
-    } finally {
-      setLoading(false);
     }
-  };
-
-  const addOrder = async (order: Omit<Order, 'id' | 'orderDate' | 'customer' | 'order_number'> & {
-    items: OrderItem[];
-    order_number?: number;
-  }) => {
-    setLoading(true);
+  }, [fetchData]);
+  
+const addOrder = useCallback(async (order: Omit<Order, 'id' | 'orderDate' | 'customer' | 'order_number'> & { items: OrderItem[]; order_number?: number }) => {
     try {
       const { error } = await supabase
         .from('orders')
         .insert({
           customer_id: order.customerId,
-          items: order.items,
-          subtotal: order.subtotal,
-          delivery_fee: order.deliveryFee,
-          total: order.total,
           status: order.status,
           payment_status: order.paymentStatus,
           payment_method: order.paymentMethod,
           delivery_method: order.deliveryMethod,
+          subtotal: order.subtotal,
+          delivery_fee: order.deliveryFee,
+          total: order.total,
           notes: order.notes,
           estimated_delivery: order.estimatedDelivery?.toISOString(),
-          order_number: order.order_number,
-        })
-        .select();
-
+          completed_at: order.completedAt?.toISOString(),
+        });
       if (error) throw error;
-      
-      await updateCustomerTotals(order.customerId);
+      await fetchData();
+      await updateCustomerTotals(order.customerId); // ✅ Chamada da função para atualizar os totais
     } catch (err) {
       console.error('Error adding order:', err);
       throw err;
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [fetchData]);
 
-  const updateOrder = async (id: string, orderData: Partial<Order>) => {
-    setLoading(true);
+const updateOrder = useCallback(async (id: string, orderData: Partial<Order>) => {
     try {
       const { error } = await supabase
         .from('orders')
@@ -300,127 +335,24 @@ export const useSupabaseData = () => {
           notes: orderData.notes,
         })
         .eq('id', id);
-
       if (error) throw error;
-
+      await fetchData();
+      
+      // ✅ Chamada da função para atualizar os totais
       const { data: updatedOrder, error: fetchError } = await supabase
         .from('orders')
         .select('customer_id')
         .eq('id', id)
         .single();
-
       if (fetchError) throw fetchError;
-
       if (updatedOrder.customer_id) {
-        await updateCustomerTotals(updatedOrder.customer_id);
+          await updateCustomerTotals(updatedOrder.customer_id);
       }
-
     } catch (err) {
       console.error('Error updating order:', err);
       throw err;
-    } finally {
-      setLoading(false);
     }
-  };
-  
-  const formatProduct = (p: SupabaseProductRow): Product => ({
-      id: p.id,
-      name: p.name,
-      description: p.description,
-      isActive: p.is_active,
-      priceHistory: p.price_history || [],
-      totalSold: p.total_sold,
-      createdAt: new Date(p.created_at),
-      image: p.image_url,
-      category: p.category_id,
-      price: p.price,
-      weight: p.weight,
-  });
-
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-      const [
-        { data: customersData, error: customersError },
-        { data: productsData, error: productsError },
-        { data: categoriesData, error: categoriesError },
-        { data: ordersData, error: ordersError },
-      ] = await Promise.all([
-        supabase.from('customers').select('*').order('created_at', { ascending: false }),
-        supabase.from('products').select('*').order('created_at', { ascending: false }),
-        supabase.from('product_categories').select('*, productCount:products(count)').order('name'),
-        supabase.from('orders').select('*, customer:customers(*)').order('created_at', { ascending: false }),
-      ]);
-
-      if (customersError) throw customersError;
-      if (productsError) throw productsError;
-      if (categoriesError) throw categoriesError;
-      if (ordersError) throw ordersError;
-      
-      const formattedCustomers = customersData.map(c => ({
-        ...c,
-        isGiftEligible: c.is_gift_eligible,
-        totalOrders: c.total_orders,
-        totalSpent: c.total_spent,
-        completedOrders: c.completed_orders,
-        cancelledOrders: c.cancelled_orders,
-        pendingOrders: c.pending_orders,
-        paidSpent: c.paid_spent,
-        pendingSpent: c.pending_spent,
-        deliveryPreferences: c.delivery_preferences,
-      }));
-      
-      const formattedProducts = productsData.map(formatProduct);
-
-      const formattedOrders = ordersData.map(o => ({
-        ...o,
-        orderNumber: o.order_number ?? 0,
-        orderDate: new Date(o.created_at),
-        customerId: o.customer_id,
-        deliveryFee: o.delivery_fee,
-        paymentStatus: o.payment_status,
-        paymentMethod: o.payment_method,
-        deliveryMethod: o.delivery_method,
-        estimatedDelivery: o.estimated_delivery ? new Date(o.estimated_delivery) : null,
-        completedAt: o.completed_at ? new Date(o.completed_at) : null,
-      }));
-
-      const formattedCategories = categoriesData.map(cat => ({
-        ...cat,
-        isActive: cat.is_active,
-        productCount: Array.isArray(cat.productCount) ? cat.productCount[0]?.count || 0 : cat.productCount || 0,
-      }));
-
-      const { data: mostSoldData, error: mostSoldError } = await supabase
-        .from('products')
-        .select('category_id')
-        .order('total_sold', { ascending: false })
-        .limit(1)
-        .single();
-        
-      if (mostSoldError) {
-        setMostSoldCategory(null);
-      } else {
-        const mostSoldCat = formattedCategories.find(cat => cat.id === mostSoldData.category_id) || null;
-        setMostSoldCategory(mostSoldCat);
-      }
-      setCustomers(formattedCustomers);
-      setProducts(formattedProducts);
-      setCategories(formattedCategories);
-      setOrders(formattedOrders);
-    } catch (err) {
-      console.error('Error fetching data:', err);
-      setError('Failed to fetch data');
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+  }, [fetchData]);
 
   useEffect(() => {
     if (user) {
@@ -428,28 +360,17 @@ export const useSupabaseData = () => {
 
       const productChannel = supabase
         .channel('products_changes')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'products' },
-          (payload) => {
-            console.log('Change received!', payload);
-            fetchData();
-          }
-        )
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
+          fetchData();
+        })
         .subscribe();
       
       const categoriesChannel = supabase
         .channel('categories_changes')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'product_categories' },
-          (payload) => {
-            console.log('Category change received!', payload);
-            fetchData();
-          }
-        )
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'product_categories' }, () => {
+          fetchData();
+        })
         .subscribe();
-
 
       return () => {
         supabase.removeChannel(productChannel);

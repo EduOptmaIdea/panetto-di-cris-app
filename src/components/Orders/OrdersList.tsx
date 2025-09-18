@@ -99,9 +99,15 @@ const OrdersList: React.FC = () => {
     setEditingOrder(null);
   };
 
+  // ✅ Função getOrderDiscountTotal agora é utilizada
+  const getOrderDiscountTotal = (order: Order) => {
+    const itemsDiscount = order.items.reduce((sum, item) => sum + (item.itemDiscount || 0) * item.quantity, 0);
+    const orderDiscount = order.orderDiscount || 0;
+    return itemsDiscount + orderDiscount;
+  };
+
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Pedidos</h1>
@@ -117,7 +123,6 @@ const OrdersList: React.FC = () => {
         </button>
       </div>
 
-      {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="flex-1">
@@ -152,7 +157,6 @@ const OrdersList: React.FC = () => {
         </div>
       </div>
 
-      {/* Orders List */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {filteredOrders.length > 0 ? (
           <div className="divide-y divide-gray-200">
@@ -279,7 +283,7 @@ const OrdersList: React.FC = () => {
           <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b">
               <h2 className="text-xl font-bold text-gray-900">
-                {editingOrder ? 'Editar Pedido' : 'Detalhes do Pedido'} Pedido #{formatOrderNumber((viewingOrder || editingOrder)!.order_number ?? 0)}
+                {editingOrder ? 'Editar Pedido' : 'Detalhes do Pedido'} Pedido #{formatOrderNumber((viewingOrder || editingOrder)?.order_number ?? 0)}
               </h2>
               <button
                 onClick={handleCloseOrderDetails}
@@ -320,8 +324,20 @@ const OrdersList: React.FC = () => {
                         <p className="text-sm text-gray-600">Quantidade: {item.quantity}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium">R$ {item.total.toFixed(2)}</p>
-                        <p className="text-sm text-gray-600">R$ {item.unitPrice.toFixed(2)} cada</p>
+                        <p className="font-medium">
+                          {item.itemDiscount && item.itemDiscount > 0 ? (
+                            <span className="line-through text-gray-500 mr-2">
+                              R$ {item.unitPrice.toFixed(2)}
+                            </span>
+                          ) : null}
+                          R$ {item.finalUnitPrice?.toFixed(2) || item.unitPrice.toFixed(2)}
+                        </p>
+                        {item.itemDiscount && item.itemDiscount > 0 && (
+                          <p className="text-sm text-red-600">
+                            Desconto: R$ {item.itemDiscount.toFixed(2)}
+                          </p>
+                        )}
+                        <p className="text-sm text-gray-600">Total: R$ {item.total.toFixed(2)}</p>
                       </div>
                     </div>
                   ))}
@@ -333,8 +349,20 @@ const OrdersList: React.FC = () => {
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Resumo do Pedido</h3>
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span>Subtotal:</span>
+                    <span>Subtotal Bruto:</span>
                     <span>R$ {(viewingOrder || editingOrder)?.subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Desconto nos Itens:</span>
+                    <span className="text-red-600">
+                      - R$ {((viewingOrder || editingOrder)?.totalItemsDiscount ?? 0).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Desconto Geral:</span>
+                    <span className="text-red-600">
+                      - R$ {((viewingOrder || editingOrder)?.orderDiscount ?? 0).toFixed(2)}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span>Taxa de Entrega:</span>
@@ -343,6 +371,11 @@ const OrdersList: React.FC = () => {
                   <div className="flex justify-between font-bold text-lg border-t pt-2">
                     <span>Total:</span>
                     <span>R$ {(viewingOrder || editingOrder)?.total.toFixed(2)}</span>
+                  </div>
+                  {/* Total de Descontos (calculado) */}
+                  <div className="flex justify-between text-sm text-red-600">
+                    <span>Total de Descontos:</span>
+                    <span>- R$ {getOrderDiscountTotal(viewingOrder || editingOrder!).toFixed(2)}</span>
                   </div>
                 </div>
               </div>

@@ -38,8 +38,7 @@ export const useSupabaseData = () => {
     try {
       const [{ data: categoriesData, error: categoriesError },
         { data: productsData, error: productsError },
-        { data: customersData, error: customersError },
-        { data: ordersData, error: ordersError }] = await Promise.all([
+        { data: customersData, error: customersError }] = await Promise.all([
         supabase.from('product_categories').select('*').order('name', { ascending: true }),
         supabase.from('products').select('*').order('name', { ascending: true }),
         supabase.from('customers').select('*').order('name', { ascending: true }),
@@ -49,7 +48,6 @@ export const useSupabaseData = () => {
       if (categoriesError) throw categoriesError;
       if (productsError) throw productsError;
       if (customersError) throw customersError;
-      if (ordersError) throw ordersError;
       
       const productCounts = new Map<string, number>();
       if (productsData) {
@@ -109,6 +107,9 @@ export const useSupabaseData = () => {
         pendingSpent: c.pending_spent,
       }));
 
+      const { data: ordersData, error: ordersError } = await supabase.from('orders').select('*, customer:customer_id(*), items:order_items(*)');
+      if (ordersError) throw ordersError;
+      
       const formattedOrders = ordersData.map(o => ({
         ...o,
         orderNumber: o.order_number,
@@ -166,7 +167,7 @@ export const useSupabaseData = () => {
     if (updateError) {
       console.error('Error updating customer totals:', updateError);
     }
-  }, []);
+  }, [fetchData]);
 
   const addCategory = useCallback(async (category: Pick<ProductCategory, 'name' | 'description' | 'isActive'>) => {
     try {

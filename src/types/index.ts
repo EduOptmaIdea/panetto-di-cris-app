@@ -44,6 +44,7 @@ export interface Product {
   priceHistory: PriceHistory[];
   image: string | null;
   weight: number | null;
+  customPackaging: boolean;
   isActive: boolean;
   createdAt: Date;
   totalSold: number;
@@ -68,6 +69,8 @@ export interface OrderItem {
   quantity: number;
   unitPrice: number;
   total: number;
+  itemDiscount?: number; // ✅ Novo campo
+  finalUnitPrice?: number; // ✅ Novo campo
 }
 
 export interface Order {
@@ -79,6 +82,8 @@ export interface Order {
   subtotal: number;
   deliveryFee: number;
   total: number;
+  orderDiscount?: number; // ✅ Novo campo
+  totalItemsDiscount?: number; // ✅ Novo campo
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   paymentMethod: PaymentMethod;

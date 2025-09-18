@@ -1,11 +1,22 @@
 import React, { useState } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import { X, User, ShoppingCart, Plus, Minus, Truck, CreditCard } from 'lucide-react';
+import { OrderItem } from '../../types';
 
 interface OrderFormProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+// ✅ Função para formatar valores em Reais
+const formatCurrency = (value: number | string): string => {
+  const numericValue = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(numericValue)) return 'R$ 0,00';
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(numericValue);
+};
 
 const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
   const { addOrder, customers, products } = useApp();
@@ -16,11 +27,13 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
     paymentMethod: 'cash' as 'cash' | 'card' | 'pix' | 'transfer',
     salesChannel: 'direct' as 'direct' | 'whatsapp' | '99food' | 'ifood',
     deliveryFee: 0,
+    orderDiscount: 0,
     notes: '',
     estimatedDelivery: '',
   });
 
   const [orderItems, setOrderItems] = useState<{ [key: string]: number }>({});
+  const [itemDiscounts, setItemDiscounts] = useState<{ [key: string]: number }>({});
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,21 +46,29 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
     setLoading(true);
 
     try {
-      const items = Object.entries(orderItems).map(([productId, quantity]) => {
+      let totalItemsDiscount = 0;
+      const items: OrderItem[] = Object.entries(orderItems).map(([productId, quantity]) => {
         const product = products.find(p => p.id === productId);
         if (!product) throw new Error('Produto não encontrado');
+
+        const discount = itemDiscounts[productId] || 0;
+        const finalUnitPrice = product.price - discount;
+        const total = finalUnitPrice * quantity;
+        totalItemsDiscount += discount * quantity;
 
         return {
           productId,
           product,
           quantity,
           unitPrice: product.price,
-          total: product.price * quantity,
+          total,
+          itemDiscount: discount,
+          finalUnitPrice,
         };
       });
 
       const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-      const total = subtotal + formData.deliveryFee;
+      const total = subtotal + formData.deliveryFee - formData.orderDiscount;
 
       const orderData = {
         customerId: formData.customerId,
@@ -55,6 +76,8 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
         subtotal,
         deliveryFee: formData.deliveryFee,
         total,
+        orderDiscount: formData.orderDiscount,
+        totalItemsDiscount,
         status: 'pending' as const,
         paymentStatus: 'pending' as const,
         paymentMethod: formData.paymentMethod,
@@ -67,17 +90,18 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
       await addOrder(orderData);
       onClose();
 
-      // Reset form
       setFormData({
         customerId: '',
         deliveryMethod: 'pickup',
         paymentMethod: 'cash',
         salesChannel: 'direct',
         deliveryFee: 0,
+        orderDiscount: 0,
         notes: '',
         estimatedDelivery: '',
       });
       setOrderItems({});
+      setItemDiscounts({});
     } catch (error) {
       console.error('Erro ao criar pedido:', error);
       alert('Erro ao criar pedido. Tente novamente.');
@@ -90,8 +114,15 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
     const { name, value } = e.target;
     setFormData({
       ...formData,
-      [name]: name === 'deliveryFee' ? parseFloat(value) || 0 : value,
+      [name]: name === 'deliveryFee' || name === 'orderDiscount' ? parseFloat(value) || 0 : value,
     });
+  };
+
+  const handleItemDiscountChange = (productId: string, value: string) => {
+    setItemDiscounts(prev => ({
+      ...prev,
+      [productId]: parseFloat(value) || 0,
+    }));
   };
 
   const addProduct = (productId: string) => {
@@ -108,17 +139,45 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
         newItems[productId]--;
       } else {
         delete newItems[productId];
+        delete itemDiscounts[productId];
       }
       return newItems;
     });
   };
 
-  const getOrderTotal = () => {
-    const subtotal = Object.entries(orderItems).reduce((sum, [productId, quantity]) => {
+  const getGrossTotal = () => {
+    return Object.entries(orderItems).reduce((sum, [productId, quantity]) => {
       const product = products.find(p => p.id === productId);
       return sum + (product?.price || 0) * quantity;
     }, 0);
-    return subtotal + formData.deliveryFee;
+  };
+
+  const getTotalItemsDiscount = () => {
+    return Object.entries(orderItems).reduce((sum, [productId, quantity]) => {
+      const discount = itemDiscounts[productId] || 0;
+      return sum + discount * quantity;
+    }, 0);
+  };
+
+  const getTotalDiscount = () => {
+    return getTotalItemsDiscount() + formData.orderDiscount;
+  };
+
+  const getSubtotal = () => {
+    return getGrossTotal() - getTotalItemsDiscount();
+  };
+
+  const getOrderTotal = () => {
+    return getSubtotal() + formData.deliveryFee - formData.orderDiscount;
+  };
+
+  const getDiscountPercentage = () => {
+    const grossTotal = getGrossTotal();
+    const totalDiscount = getTotalDiscount();
+    if (grossTotal > 0) {
+      return ((totalDiscount / grossTotal) * 100).toFixed(2);
+    }
+    return '0.00';
   };
 
   if (!isOpen) return null;
@@ -168,13 +227,34 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
 
             <div className="space-y-3 max-h-60 overflow-y-auto border rounded-lg p-3">
               {products.filter(p => p.isActive).map((product) => (
-                <div key={product.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={product.id} className="flex flex-col sm:flex-row items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex-1">
                     <h4 className="font-medium text-gray-900">{product.name}</h4>
-                    <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
+                    <p className="text-sm text-gray-600">
+                      {itemDiscounts[product.id] > 0 && (
+                        <span className="ml-2 text-red-500 line-through">
+                          {formatCurrency(product.price)}
+                        </span>
+                      )}
+                      R$ {product.price.toFixed(2)}
+                    </p>
                   </div>
 
-                  <div className="flex items-center space-x-2">
+                  {orderItems[product.id] > 0 && (
+                    <div className="flex items-center space-x-2 mt-2 sm:mt-0">
+                      <label className="text-sm font-medium text-gray-700">Desc. (R$):</label>
+                      <input
+                        type="number"
+                        value={itemDiscounts[product.id] || 0}
+                        onChange={(e) => handleItemDiscountChange(product.id, e.target.value)}
+                        className="w-20 px-2 py-1 text-sm text-center border rounded-lg"
+                        step="0.01"
+                        min="0"
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex items-center space-x-2 mt-2 sm:mt-0">
                     {orderItems[product.id] ? (
                       <>
                         <button
@@ -258,7 +338,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
                 value={formData.deliveryFee}
                 onChange={handleChange}
                 min="0"
-                step="0.01"
+                step="0.50"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 placeholder="0,00"
               />
@@ -266,14 +346,17 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
 
             <div>
               <label className="text-sm font-medium text-gray-700 mb-2 block">
-                Previsão de Entrega
+                Desconto Geral (R$)
               </label>
               <input
-                type="datetime-local"
-                name="estimatedDelivery"
-                value={formData.estimatedDelivery}
+                type="number"
+                name="orderDiscount"
+                value={formData.orderDiscount}
                 onChange={handleChange}
+                min="0"
+                step="0.50"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                placeholder="0,00"
               />
             </div>
           </div>
@@ -292,12 +375,35 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
             />
           </div>
 
-          {/* Total */}
           {Object.keys(orderItems).length > 0 && (
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="flex justify-between items-center text-lg font-bold">
-                <span>Total do Pedido:</span>
-                <span>R$ {getOrderTotal().toFixed(2)}</span>
+            <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+              <div className="flex justify-between items-center text-sm">
+                <span>Subtotal Bruto:</span>
+                <span>{formatCurrency(getGrossTotal())}</span>
+              </div>
+
+              <div className="flex justify-between items-center text-sm text-red-500">
+                <span>Desconto nos Itens:</span>
+                <span>- {formatCurrency(getTotalItemsDiscount())}</span>
+              </div>
+
+              <div className="flex justify-between items-center text-sm text-red-500">
+                <span>Desconto Geral:</span>
+                <span>- {formatCurrency(formData.orderDiscount)}</span>
+              </div>
+
+              <div className="flex justify-between items-center text-sm">
+                <span>Taxa de Entrega:</span>
+                <span>{formatCurrency(formData.deliveryFee)}</span>
+              </div>
+
+              <div className="flex justify-between items-center text-sm font-bold border-t pt-2">
+                <span>Total a Pagar:</span>
+                <span>{formatCurrency(getOrderTotal())}</span>
+              </div>
+
+              <div className="text-xs text-gray-600 mt-2 text-right">
+                <p>Desconto total: {getTotalDiscount().toFixed(2)} ({getDiscountPercentage()}%)</p>
               </div>
             </div>
           )}

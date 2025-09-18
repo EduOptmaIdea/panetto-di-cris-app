@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { Eye, EyeOff, Mail, Lock, Package, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, /*Package,*/ AlertCircle } from 'lucide-react';
 
 const LoginForm: React.FC = () => {
   const { signIn, signUp, resetPassword } = useAuth();
@@ -66,15 +66,15 @@ const LoginForm: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-gradient-to-r from-orange-400 to-amber-500 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Package className="w-10 h-10 text-white" />
+          <div className="w-22 h-22 bg-transparent rounded-full flex items-center justify-center mx-auto mb-4">
+            <img src="/panetto-di-cris-logo-redonda.png" alt="Logo" className="w-20 h-20" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Panetto di Cris</h1>
-          <p className="text-gray-600">Sistema de Controle de Pedidos</p>
+          {/* <h1 className="text-3xl font-bold text-gray-900 mb-2">Panetto di Cris</h1> */}
+          <p className="text-gray-800">Sistema de Controle de Pedidos</p>
         </div>
 
         {/* Form */}

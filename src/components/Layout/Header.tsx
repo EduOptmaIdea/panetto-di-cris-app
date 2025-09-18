@@ -8,12 +8,14 @@ import {
   Menu
 } from 'lucide-react';
 
+// ✅ Apenas as propriedades onNotificationsClick e onToggleSidebar são necessárias
 interface HeaderProps {
-  onMenuClick: () => void;
   onNotificationsClick: () => void;
+  onToggleSidebar: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onMenuClick, onNotificationsClick }) => {
+// ✅ Corrigido o destructuring das props
+const Header: React.FC<HeaderProps> = ({ onNotificationsClick, onToggleSidebar }) => {
   const { user, signOut } = useAuth();
   const { unreadCount } = useNotifications();
 
@@ -31,16 +33,17 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onNotificationsClick }) =>
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-4">
             <button
-              onClick={onMenuClick}
+              onClick={onToggleSidebar} // ✅ Corrigido para usar a prop correta
               className="lg:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <Menu className="w-6 h-6" />
             </button>
+            <h2 className="text-2xl font-bold text-gray-800 hidden lg:block">Panetto di Cris</h2>
           </div>
 
           <div className="flex items-center space-x-4 ml-auto">
             <button
-              onClick={onNotificationsClick}
+              onClick={onNotificationsClick} // ✅ Propriedade 'onNotificationsClick' é usada aqui
               className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <Bell className="w-6 h-6" />
@@ -66,7 +69,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onNotificationsClick }) =>
                 className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                 title="Sair"
               >
-                <LogOut className="w-5 h-5" />
+                <LogOut className="w-6 h-6" />
               </button>
             </div>
           </div>

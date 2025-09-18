@@ -163,7 +163,7 @@ const OrdersList: React.FC = () => {
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <div className="flex items-center space-x-3 mb-2">
-                          <h3 className="text-lg font-semibold text-gray-900">Pedido #{formatOrderNumber(order.order_number)}</h3>
+                          <h3 className="text-lg font-semibold text-gray-900">Pedido #{formatOrderNumber(order.order_number ?? 0)}</h3>
                           <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusBadge(order.status)}`}>
                             {getStatusLabel(order.status)}
                           </span>
@@ -279,7 +279,7 @@ const OrdersList: React.FC = () => {
           <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b">
               <h2 className="text-xl font-bold text-gray-900">
-                {editingOrder ? 'Editar Pedido' : 'Detalhes do Pedido'} Pedido #{formatOrderNumber((viewingOrder || editingOrder)!.order_number)}
+                {editingOrder ? 'Editar Pedido' : 'Detalhes do Pedido'} Pedido #{formatOrderNumber((viewingOrder || editingOrder)!.order_number ?? 0)}
               </h2>
               <button
                 onClick={handleCloseOrderDetails}

@@ -30,7 +30,9 @@ export interface Customer {
 export interface ProductCategory {
   id: string;
   name: string;
-  description?: string;
+  description?: string | null;
+  isActive: boolean; // ✅ Novo campo
+  productCount: number; // ✅ Novo campo
 }
 
 export interface Product {

@@ -14,9 +14,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     updateCustomer,
     addProduct,
     updateProduct,
-    deleteProduct, // ✅ Adicionado
+    deleteProduct,
+    addCategory,
+    updateCategory,
+    deleteCategory,
     addOrder,
     updateOrder,
+    mostSoldCategory, // ✅ Adicionado
     refetch,
   } = useSupabaseData();
 
@@ -33,9 +37,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateCustomer,
         addProduct,
         updateProduct,
-        deleteProduct, // ✅ Adicionado
+        deleteProduct,
+        addCategory,
+        updateCategory,
+        deleteCategory,
         addOrder,
         updateOrder,
+        mostSoldCategory, // ✅ Adicionado
         refetch,
       }}
     >

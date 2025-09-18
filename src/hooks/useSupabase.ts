@@ -1,7 +1,35 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './useAuth';
-import type { Customer, Product, ProductCategory, Order, OrderItem} from '../types';
+import type { Customer, Product, ProductCategory, Order, OrderItem, PriceHistory} from '../types';
+
+// Define o tipo para os dados vindo do Supabase, que usam snake_case
+type SupabaseProductRow = {
+  id: string;
+  name: string;
+  description: string;
+  category_id: string;
+  price: number;
+  price_history: PriceHistory[] | null;
+  image_url: string | null;
+  weight: number | null;
+  is_active: boolean;
+  created_at: string;
+  total_sold: number;
+};
+
+{/*type SupabaseCategoryRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+};
+
+type SupabaseProductCount = {
+  category_id: string;
+  count: number;
+};*/}
+
 
 export const useSupabaseData = () => {
   const { user } = useAuth();
@@ -11,6 +39,60 @@ export const useSupabaseData = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mostSoldCategory, setMostSoldCategory] = useState<ProductCategory | null>(null);
+
+
+  const addCategory = async (category: Pick<ProductCategory, 'name' | 'description' | 'isActive'>) => {
+    try {
+      const { error } = await supabase.from('product_categories').insert({
+        name: category.name,
+        description: category.description,
+        is_active: category.isActive,
+      });
+      if (error) throw error;
+      await fetchData();
+    } catch (err) {
+      console.error('Error adding category:', err);
+      throw err;
+    }
+  };
+
+  const updateCategory = async (id: string, updates: Partial<ProductCategory>) => {
+    try {
+      const { error } = await supabase
+        .from('product_categories')
+        .update({
+          name: updates.name,
+          description: updates.description,
+          is_active: updates.isActive,
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      await fetchData();
+    } catch (err) {
+      console.error('Error updating category:', err);
+      throw err;
+    }
+  };
+
+  const deleteCategory = async (id: string) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+      .from('product_categories')
+      .delete()
+      .eq('id', id);
+
+      if (error) throw error;
+
+    } catch (err) {
+      console.error('Error deleting category:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const updateCustomerTotals = async (customerId: string) => {
     const { data: customerOrders, error: ordersError } = await supabase
@@ -51,7 +133,7 @@ export const useSupabaseData = () => {
   const addProduct = async (product: Omit<Product, 'id' | 'createdAt' | 'totalSold' | 'priceHistory'>) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('products')
         .insert({
           name: product.name,
@@ -65,14 +147,10 @@ export const useSupabaseData = () => {
         .select();
 
       if (error) throw error;
-
-      if (data) {
-        const newProduct = { ...product, id: data[0].id, createdAt: new Date(), totalSold: 0, priceHistory: [] };
-        setProducts(prevProducts => [...prevProducts, newProduct]);
-      }
+      
     } catch (err) {
       console.error('Error adding product:', err);
-      // throw err;
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -96,11 +174,6 @@ export const useSupabaseData = () => {
 
       if (error) throw error;
       
-      setProducts(prevProducts =>
-        prevProducts.map(p =>
-          p.id === id ? { ...p, ...updates } : p
-        )
-      );
     } catch (err) {
       console.error('Error updating product:', err);
       throw err;
@@ -118,8 +191,7 @@ export const useSupabaseData = () => {
         .eq('id', id);
 
       if (error) throw error;
-
-      setProducts(prevProducts => prevProducts.filter(product => product.id !== id));
+      
     } catch (err) {
       console.error('Error deleting product:', err);
       throw err;
@@ -131,7 +203,7 @@ export const useSupabaseData = () => {
   const addCustomer = async (customer: Omit<Customer, 'id' | 'createdAt' | 'isGiftEligible' | 'totalOrders' | 'totalSpent' | 'completedOrders' | 'cancelledOrders' | 'pendingOrders' | 'paidSpent' | 'pendingSpent'>) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('customers')
         .insert({
           name: customer.name,
@@ -145,22 +217,6 @@ export const useSupabaseData = () => {
 
       if (error) throw error;
 
-      if (data) {
-        const newCustomer = {
-          ...customer,
-          id: data[0].id,
-          createdAt: new Date(),
-          isGiftEligible: false,
-          totalOrders: 0,
-          totalSpent: 0,
-          completedOrders: 0,
-          cancelledOrders: 0,
-          pendingOrders: 0,
-          paidSpent: 0,
-          pendingSpent: 0,
-        };
-        setCustomers(prevCustomers => [...prevCustomers, newCustomer]);
-      }
     } catch (err) {
       console.error('Error adding customer:', err);
       throw err;
@@ -186,7 +242,6 @@ export const useSupabaseData = () => {
 
       if (error) throw error;
 
-      setCustomers(prevCustomers => prevCustomers.map(c => c.id === id ? { ...c, ...customer } : c));
     } catch (err) {
       console.error('Error updating customer:', err);
       throw err;
@@ -201,7 +256,7 @@ export const useSupabaseData = () => {
   }) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('orders')
         .insert({
           customer_id: order.customerId,
@@ -221,24 +276,7 @@ export const useSupabaseData = () => {
 
       if (error) throw error;
       
-      if (data) {
-        const { data: customerData, error: customerError } = await supabase
-          .from('customers')
-          .select('*')
-          .eq('id', order.customerId)
-          .single();
-
-        if (customerError) throw customerError;
-
-        const newOrder = {
-          ...order,
-          id: data[0].id,
-          orderDate: new Date(data[0].order_date),
-          customer: customerData,
-        };
-        setOrders(prevOrders => [...prevOrders, newOrder]);
-        await updateCustomerTotals(order.customerId);
-      }
+      await updateCustomerTotals(order.customerId);
     } catch (err) {
       console.error('Error adding order:', err);
       throw err;
@@ -277,7 +315,6 @@ export const useSupabaseData = () => {
         await updateCustomerTotals(updatedOrder.customer_id);
       }
 
-      await fetchData();
     } catch (err) {
       console.error('Error updating order:', err);
       throw err;
@@ -285,8 +322,21 @@ export const useSupabaseData = () => {
       setLoading(false);
     }
   };
+  
+  const formatProduct = (p: SupabaseProductRow): Product => ({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      isActive: p.is_active,
+      priceHistory: p.price_history || [],
+      totalSold: p.total_sold,
+      createdAt: new Date(p.created_at),
+      image: p.image_url,
+      category: p.category_id,
+      price: p.price,
+      weight: p.weight,
+  });
 
-// ... (código anterior)
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -304,8 +354,8 @@ export const useSupabaseData = () => {
       ] = await Promise.all([
         supabase.from('customers').select('*').order('created_at', { ascending: false }),
         supabase.from('products').select('*').order('created_at', { ascending: false }),
-        supabase.from('product_categories').select('*').order('name'),
-        supabase.from('orders').select('*, customer:customers(*)').order('created_at', { ascending: false }), // ✅ Corrigido para 'created_at'
+        supabase.from('product_categories').select('*, productCount:products(count)').order('name'),
+        supabase.from('orders').select('*, customer:customers(*)').order('created_at', { ascending: false }),
       ]);
 
       if (customersError) throw customersError;
@@ -326,20 +376,12 @@ export const useSupabaseData = () => {
         deliveryPreferences: c.delivery_preferences,
       }));
       
-      const formattedProducts = productsData.map(p => ({
-        ...p,
-        isActive: p.is_active,
-        priceHistory: p.price_history || [],
-        totalSold: p.total_sold,
-        createdAt: new Date(p.created_at),
-        image: p.image_url,
-        category: p.category_id,
-      }));
+      const formattedProducts = productsData.map(formatProduct);
 
       const formattedOrders = ordersData.map(o => ({
         ...o,
         orderNumber: o.order_number ?? 0,
-        orderDate: new Date(o.created_at), // ✅ Usando created_at para a data do pedido
+        orderDate: new Date(o.created_at),
         customerId: o.customer_id,
         deliveryFee: o.delivery_fee,
         paymentStatus: o.payment_status,
@@ -349,9 +391,28 @@ export const useSupabaseData = () => {
         completedAt: o.completed_at ? new Date(o.completed_at) : null,
       }));
 
+      const formattedCategories = categoriesData.map(cat => ({
+        ...cat,
+        isActive: cat.is_active,
+        productCount: Array.isArray(cat.productCount) ? cat.productCount[0]?.count || 0 : cat.productCount || 0,
+      }));
+
+      const { data: mostSoldData, error: mostSoldError } = await supabase
+        .from('products')
+        .select('category_id')
+        .order('total_sold', { ascending: false })
+        .limit(1)
+        .single();
+        
+      if (mostSoldError) {
+        setMostSoldCategory(null);
+      } else {
+        const mostSoldCat = formattedCategories.find(cat => cat.id === mostSoldData.category_id) || null;
+        setMostSoldCategory(mostSoldCat);
+      }
       setCustomers(formattedCustomers);
       setProducts(formattedProducts);
-      setCategories(categoriesData);
+      setCategories(formattedCategories);
       setOrders(formattedOrders);
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -361,11 +422,39 @@ export const useSupabaseData = () => {
     }
   }, [user]);
 
-// ... (resto do código)
-
   useEffect(() => {
     if (user) {
       fetchData();
+
+      const productChannel = supabase
+        .channel('products_changes')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'products' },
+          (payload) => {
+            console.log('Change received!', payload);
+            fetchData();
+          }
+        )
+        .subscribe();
+      
+      const categoriesChannel = supabase
+        .channel('categories_changes')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'product_categories' },
+          (payload) => {
+            console.log('Category change received!', payload);
+            fetchData();
+          }
+        )
+        .subscribe();
+
+
+      return () => {
+        supabase.removeChannel(productChannel);
+        supabase.removeChannel(categoriesChannel);
+      };
     } else {
       setCustomers([]);
       setProducts([]);
@@ -382,11 +471,15 @@ export const useSupabaseData = () => {
     orders,
     loading,
     error,
+    mostSoldCategory,
     addCustomer,
     updateCustomer,
     addProduct,
     updateProduct,
-    deleteProduct, // ✅ Retorne a nova função de exclusão
+    deleteProduct,
+    addCategory,
+    updateCategory,
+    deleteCategory,
     addOrder,
     updateOrder,
     refetch: fetchData,

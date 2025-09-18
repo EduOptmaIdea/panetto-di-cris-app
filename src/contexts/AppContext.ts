@@ -1,6 +1,5 @@
-// src/contexts/AppContext.ts
 import { createContext, useContext } from 'react';
-import type { Customer, Product, Order, OrderItem, ProductCategory } from '../types';
+import type { Customer, Product, Order, OrderItem, ProductCategory, /*PriceHistory*/ } from '../types';
 
 interface AppContextType {
   // Data
@@ -10,17 +9,17 @@ interface AppContextType {
   orders: Order[];
   loading: boolean;
   error: string | null;
-
+  mostSoldCategory: ProductCategory | null; // ✅ Adicionado
+  
   // CRUD operations
   addCustomer: (customer: Omit<Customer, 'id' | 'createdAt' | 'isGiftEligible' | 'totalOrders' | 'totalSpent' | 'completedOrders' | 'cancelledOrders' | 'pendingOrders' | 'paidSpent' | 'pendingSpent'>) => Promise<void>;
-  
-  // ✅ Corrigido para aceitar o tipo Omit<Product, ...>
-  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'totalSold' | 'priceHistory'>) => Promise<void>;
-  
-  // ✅ Adicionada a nova função de exclusão
-  deleteProduct: (id: string) => Promise<void>;
   updateCustomer: (id: string, customer: Partial<Customer>) => Promise<void>;
+  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'totalSold' | 'priceHistory'>) => Promise<void>;
   updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>; // ✅ Adicionado
+  addCategory: (category: Pick<ProductCategory, 'name' | 'description' | 'isActive'>) => Promise<void>; // ✅ Adicionado
+  updateCategory: (id: string, updates: Partial<ProductCategory>) => Promise<void>; // ✅ Adicionado
+  deleteCategory: (id: string) => Promise<void>; // ✅ Adicionado
   addOrder: (
     order: Omit<Order, 'id' | 'orderDate' | 'customer' | 'order_number'> & {
       items: OrderItem[];
@@ -36,7 +35,7 @@ export const AppContext = createContext<AppContextType | undefined>(undefined);
 export const useApp = () => {
   const context = useContext(AppContext);
   if (!context) {
-    throw new Error('useApp must be used within AppProvider');
+    throw new Error('useApp must be used within an AppProvider');
   }
   return context;
 };

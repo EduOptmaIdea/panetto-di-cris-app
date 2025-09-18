@@ -1,15 +1,20 @@
 import React, { useState } from 'react';
 import { useApp } from '../../contexts/AppContext';
-import { Package, Plus, Minus, ShoppingCart } from 'lucide-react';
+import { Package, Plus, Minus } from 'lucide-react';
 
 const DigitalMenu: React.FC = () => {
   const { products, categories } = useApp();
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [cart, setCart] = useState<{ [key: string]: number }>({});
 
+  const currentCategory = categories.find(cat => cat.id === selectedCategory);
+
   const filteredProducts = products.filter(product => {
+    const productCategory = categories.find(cat => cat.id === product.category);
+    const categoryIsActive = productCategory?.isActive ?? true;
     const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
-    return product.isActive && matchesCategory;
+
+    return product.isActive && matchesCategory && categoryIsActive;
   });
 
   const getCategoryName = (categoryId: string) => {
@@ -36,131 +41,107 @@ const DigitalMenu: React.FC = () => {
     });
   };
 
-  const getCartTotal = () => {
-    return Object.entries(cart).reduce((total, [productId, quantity]) => {
-      const product = products.find(p => p.id === productId);
-      return total + (product?.price || 0) * quantity;
-    }, 0);
-  };
-
-  const getCartItemCount = () => {
-    return Object.values(cart).reduce((total, quantity) => total + quantity, 0);
-  };
-
   return (
-    <div className="bg-gray-50 min-h-screen pb-24">
-      {/* Header com Categorias */}
-      <header className="sticky top-0 bg-white shadow-sm z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center space-y-2 sm:space-y-0">
-          <h1 className="text-xl font-bold text-gray-800">Menu Digital</h1>
-          <nav className="flex space-x-2 overflow-x-auto pb-2 sm:pb-0">
-            <button
-              onClick={() => setSelectedCategory('all')}
-              className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${selectedCategory === 'all' ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-200 text-gray-700'
-                }`}
-            >
-              Todos
-            </button>
-            {categories.map(category => (
-              <button
-                key={category.id}
-                onClick={() => setSelectedCategory(category.id)}
-                className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${selectedCategory === category.id ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-200 text-gray-700'
-                  }`}
-              >
-                {category.name}
-              </button>
-            ))}
-          </nav>
+    <div className="min-h-screen bg-gray-50 text-gray-800 pb-20">
+      <header className="sticky top-0 z-10 bg-white shadow-sm p-4">
+        <div className="flex justify-between items-center max-w-lg mx-auto">
+          <h1 className="text-2xl font-bold text-orange-600">Panetto di Cris</h1>
         </div>
       </header>
 
-      {/* Product Grid */}
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProducts.map(product => (
-              <div key={product.id} className="bg-white rounded-2xl shadow-lg overflow-hidden flex flex-col">
-                <img
-                  src={product.image || 'https://via.placeholder.com/400x300.png?text=Sem+Imagem'}
-                  alt={product.name}
-                  className="w-full h-48 object-cover object-center"
-                />
-                <div className="p-4 flex flex-col flex-grow">
-                  <span className="text-xs font-semibold uppercase text-gray-500 mb-1">
-                    {getCategoryName(product.category)}
-                  </span>
-                  <h3 className="text-lg font-bold text-gray-900 mb-1 leading-tight">{product.name}</h3>
-                  <p className="text-sm text-gray-600 mb-2 flex-grow">{product.description}</p>
-                  <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-100">
-                    <span className="text-xl font-bold text-gray-900">
+      <nav className="sticky top-[72px] bg-white shadow-sm p-2 overflow-x-auto z-10">
+        <div className="flex space-x-2 max-w-lg mx-auto">
+          <button
+            onClick={() => setSelectedCategory('all')}
+            className={`px-4 py-2 rounded-full font-medium transition-colors ${selectedCategory === 'all' ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+          >
+            Todos
+          </button>
+          {categories.filter(cat => cat.isActive).map(category => (
+            <button
+              key={category.id}
+              onClick={() => setSelectedCategory(category.id)}
+              className={`px-4 py-2 rounded-full font-medium transition-colors whitespace-nowrap ${selectedCategory === category.id ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+            >
+              {category.name}
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      {/* ✅ Removida a classe 'max-w-lg mx-auto' para ocupar todo o espaço na tela */}
+      <main className="p-4 sm:p-6 lg:p-8">
+        {currentCategory && selectedCategory !== 'all' && (
+          <div className="max-w-5xl mx-auto mb-6 p-4 bg-orange-50 rounded-lg border border-orange-200 shadow-sm">
+            <h2 className="text-xl font-bold text-orange-800 mb-1">{currentCategory.name}</h2>
+            <p className="text-sm text-gray-700">{currentCategory.description}</p>
+          </div>
+        )}
+
+        {/* ✅ Removida a classe 'max-w-5xl mx-auto' do grid para ele se expandir */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredProducts.length > 0 ? (
+            filteredProducts.map(product => (
+              <div key={product.id} className="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col">
+                {product.image && (
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    className="w-full h-48 object-cover"
+                  />
+                )}
+                <div className="p-4 flex-1 flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">{product.name}</h3>
+                    <p className="text-sm text-gray-500 mb-2">
+                      {getCategoryName(product.category)}
+                    </p>
+                    <p className="text-sm text-gray-600 mb-3">{product.description}</p>
+                  </div>
+                  <div className="flex items-center justify-between mt-auto">
+                    <span className="text-xl font-bold text-orange-600">
                       R$ {product.price.toFixed(2)}
                     </span>
-                    {cart[product.id] > 0 ? (
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => removeFromCart(product.id)}
-                          className="p-1 rounded-full text-gray-600 hover:bg-gray-200 transition-colors"
-                        >
-                          <Minus size={20} />
-                        </button>
-                        <span className="text-lg font-semibold">{cart[product.id]}</span>
-                        <button
-                          onClick={() => addToCart(product.id)}
-                          className="p-1 rounded-full text-orange-600 bg-orange-100 hover:bg-orange-200 transition-colors"
-                        >
-                          <Plus size={20} />
-                        </button>
-                      </div>
-                    ) : (
+                    <div className="flex items-center space-x-2">
+                      {cart[product.id] > 0 && (
+                        <>
+                          <button
+                            onClick={() => removeFromCart(product.id)}
+                            className="p-2 text-orange-600 hover:text-orange-800 transition-colors"
+                          >
+                            <Minus className="w-5 h-5" />
+                          </button>
+                          <span className="font-semibold">{cart[product.id]}</span>
+                        </>
+                      )}
                       <button
                         onClick={() => addToCart(product.id)}
-                        className="flex items-center space-x-1 px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg font-semibold hover:from-orange-600 hover:to-amber-600 transition-all duration-200"
+                        className="p-2 text-white bg-orange-500 rounded-full hover:bg-orange-600 transition-colors"
                       >
-                        <Plus size={16} />
-                        <span>Adicionar</span>
+                        <Plus className="w-5 h-5" />
                       </button>
-                    )}
+                    </div>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center p-12 bg-white rounded-xl shadow-lg">
-            <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum produto disponível</h3>
-            <p className="text-gray-600">
-              {selectedCategory === 'all'
-                ? 'Não há produtos ativos no momento'
-                : 'Não há produtos nesta categoria'}
-            </p>
-          </div>
-        )}
-
-        {/* Cart Summary */}
-        {getCartItemCount() > 0 && (
-          <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto">
-            <div className="bg-white rounded-2xl shadow-xl border-2 border-orange-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-2">
-                  <ShoppingCart className="w-5 h-5 text-orange-600" />
-                  <span className="font-semibold text-gray-900">
-                    {getCartItemCount()} {getCartItemCount() === 1 ? 'item' : 'itens'}
-                  </span>
+            ))
+          ) : (
+            <div className="col-span-full">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Package className="w-12 h-12 text-gray-400" />
                 </div>
-                <div className="text-xl font-bold text-gray-900">
-                  R$ {getCartTotal().toFixed(2)}
-                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum produto disponível</h3>
+                <p className="text-gray-600">
+                  {selectedCategory === 'all'
+                    ? 'Não há produtos ativos no momento'
+                    : 'Não há produtos nesta categoria'}
+                </p>
               </div>
-
-              <button className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white py-3 rounded-xl font-semibold hover:from-orange-600 hover:to-amber-600 transition-all duration-200 shadow-lg">
-                Finalizar Pedido
-              </button>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 };

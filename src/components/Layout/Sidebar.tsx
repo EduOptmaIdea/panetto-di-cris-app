@@ -9,6 +9,7 @@ import {
   Settings,
   BarChart3,
   MessageSquare,
+  Tag,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -25,6 +26,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { path: '/orders', label: 'Pedidos', icon: ShoppingCart },
     { path: '/customers', label: 'Clientes', icon: Users },
     { path: '/products', label: 'Produtos', icon: Package },
+    { path: '/categories', label: 'Categorias', icon: Tag }, // ✅ Adicionado item de menu para Categorias
     { path: '/menu', label: 'Menu Digital', icon: MenuIcon },
     { path: '/analytics', label: 'Relatórios', icon: BarChart3 },
     { path: '/whatsapp', label: 'WhatsApp', icon: MessageSquare },
@@ -45,16 +47,20 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         />
       )}
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-xl transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'
-          } lg:relative lg:translate-x-0 lg:shadow-none`}
+        className={`
+          fixed inset-y-0 left-0 bg-white shadow-xl z-50 transition-all duration-300 transform
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+          lg:relative lg:translate-x-0 lg:w-64 // ✅ Adicionada largura para telas maiores
+        `}
       >
-        <div className="flex items-center justify-between p-6">
-          <h1 className="text-xl font-bold text-orange-600">Panetto di Cris</h1>
+        <div className="flex items-center justify-between p-4 border-b">
+          <h1 className="text-lg font-bold text-gray-800">Panetto di Cris</h1>
           <button onClick={onClose} className="lg:hidden text-gray-500 hover:text-gray-700">
+            <MenuIcon className="w-6 h-6" />
           </button>
         </div>
 
-        <nav className="p-4 space-y-2">
+        <nav className="p-4 space-y-2 flex-grow overflow-y-auto">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path ||

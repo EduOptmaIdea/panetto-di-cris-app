@@ -1,56 +1,56 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../contexts/AppContext';
-import { Package, Plus, Minus } from 'lucide-react';
+import { Package, Search } from 'lucide-react';
 
 const DigitalMenu: React.FC = () => {
   const { products, categories } = useApp();
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [cart, setCart] = useState<{ [key: string]: number }>({});
+  const [searchTerm, setSearchTerm] = useState('');
+  const navigate = useNavigate();
 
-  const currentCategory = categories.find(cat => cat.id === selectedCategory);
+  const filteredProducts = useMemo(() => {
+    return products.filter(product => {
+      const productCategory = categories.find(cat => cat.id === product.category);
+      const categoryIsActive = productCategory?.isActive ?? true;
+      const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
+      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
 
-  const filteredProducts = products.filter(product => {
-    const productCategory = categories.find(cat => cat.id === product.category);
-    const categoryIsActive = productCategory?.isActive ?? true;
-    const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
-
-    return product.isActive && matchesCategory && categoryIsActive;
-  });
-
-  const getCategoryName = (categoryId: string) => {
-    const category = categories.find(cat => cat.id === categoryId);
-    return category?.name || 'Categoria não encontrada';
-  };
-
-  const addToCart = (productId: string) => {
-    setCart(prev => ({
-      ...prev,
-      [productId]: (prev[productId] || 0) + 1
-    }));
-  };
-
-  const removeFromCart = (productId: string) => {
-    setCart(prev => {
-      const newCart = { ...prev };
-      if (newCart[productId] > 1) {
-        newCart[productId]--;
-      } else {
-        delete newCart[productId];
-      }
-      return newCart;
+      return product.isActive && matchesCategory && categoryIsActive && matchesSearch;
     });
+  }, [products, categories, selectedCategory, searchTerm]);
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(value);
+  };
+
+  const handleProductClick = (productId: string) => {
+    navigate(`/menu/${productId}`);
   };
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 pb-20">
       <header className="sticky top-0 z-10 bg-white shadow-sm p-4">
-        <div className="flex justify-between items-center max-w-lg mx-auto">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <h1 className="text-2xl font-bold text-orange-600">Panetto di Cris</h1>
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <input
+              type="text"
+              placeholder="Buscar por produto..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
       </header>
 
-      <nav className="sticky top-[72px] bg-white shadow-sm p-2 overflow-x-auto z-10">
-        <div className="flex space-x-2 max-w-lg mx-auto">
+      <nav className="sticky top-[72px] bg-white shadow-sm p-2 z-10">
+        <div className="flex flex-wrap gap-2 max-w-7xl mx-auto">
           <button
             onClick={() => setSelectedCategory('all')}
             className={`px-4 py-2 rounded-full font-medium transition-colors ${selectedCategory === 'all' ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-700'}`}
@@ -61,7 +61,7 @@ const DigitalMenu: React.FC = () => {
             <button
               key={category.id}
               onClick={() => setSelectedCategory(category.id)}
-              className={`px-4 py-2 rounded-full font-medium transition-colors whitespace-nowrap ${selectedCategory === category.id ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+              className={`px-4 py-2 rounded-full font-medium transition-colors ${selectedCategory === category.id ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-700'}`}
             >
               {category.name}
             </button>
@@ -69,59 +69,35 @@ const DigitalMenu: React.FC = () => {
         </div>
       </nav>
 
-      {/* ✅ Removida a classe 'max-w-lg mx-auto' para ocupar todo o espaço na tela */}
-      <main className="p-4 sm:p-6 lg:p-8">
-        {currentCategory && selectedCategory !== 'all' && (
-          <div className="max-w-5xl mx-auto mb-6 p-4 bg-orange-50 rounded-lg border border-orange-200 shadow-sm">
-            <h2 className="text-xl font-bold text-orange-800 mb-1">{currentCategory.name}</h2>
-            <p className="text-sm text-gray-700">{currentCategory.description}</p>
+      <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+        {selectedCategory !== 'all' && (
+          <div className="mb-6 p-4 bg-orange-50 rounded-lg border border-orange-200 shadow-sm">
+            <h2 className="text-xl font-bold text-orange-800 mb-1">{categories.find(c => c.id === selectedCategory)?.name}</h2>
+            <p className="text-sm text-gray-700">{categories.find(c => c.id === selectedCategory)?.description}</p>
           </div>
         )}
 
-        {/* ✅ Removida a classe 'max-w-5xl mx-auto' do grid para ele se expandir */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProducts.length > 0 ? (
             filteredProducts.map(product => (
-              <div key={product.id} className="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col">
+              <div
+                key={product.id}
+                className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex items-center space-x-4 p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                onClick={() => handleProductClick(product.id)}
+              >
                 {product.image && (
                   <img
                     src={product.image}
                     alt={product.name}
-                    className="w-full h-48 object-cover"
+                    className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
                   />
                 )}
-                <div className="p-4 flex-1 flex flex-col justify-between">
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900">{product.name}</h3>
-                    <p className="text-sm text-gray-500 mb-2">
-                      {getCategoryName(product.category)}
-                    </p>
-                    <p className="text-sm text-gray-600 mb-3">{product.description}</p>
-                  </div>
-                  <div className="flex items-center justify-between mt-auto">
-                    <span className="text-xl font-bold text-orange-600">
-                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.price)}
-                    </span>
-                    <div className="flex items-center space-x-2">
-                      {cart[product.id] > 0 && (
-                        <>
-                          <button
-                            onClick={() => removeFromCart(product.id)}
-                            className="p-2 text-orange-600 hover:text-orange-800 transition-colors"
-                          >
-                            <Minus className="w-5 h-5" />
-                          </button>
-                          <span className="font-semibold">{cart[product.id]}</span>
-                        </>
-                      )}
-                      <button
-                        onClick={() => addToCart(product.id)}
-                        className="p-2 text-white bg-orange-500 rounded-full hover:bg-orange-600 transition-colors"
-                      >
-                        <Plus className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg font-bold text-gray-900 truncate">{product.name}</h3>
+                  <p className="text-sm text-gray-600 line-clamp-2">{product.description}</p>
+                  <span className="text-xl font-bold text-orange-600 mt-2 block">
+                    {formatCurrency(product.price)}
+                  </span>
                 </div>
               </div>
             ))
@@ -135,7 +111,7 @@ const DigitalMenu: React.FC = () => {
                 <p className="text-gray-600">
                   {selectedCategory === 'all'
                     ? 'Não há produtos ativos no momento'
-                    : 'Não há produtos nesta categoria'}
+                    : 'Não há produtos ativos nesta categoria'}
                 </p>
               </div>
             </div>

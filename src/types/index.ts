@@ -44,7 +44,6 @@ export interface Product {
   priceHistory: PriceHistory[];
   image: string | null;
   weight: number | null;
-  customPackaging: boolean;
   isActive: boolean;
   createdAt: Date;
   totalSold: number;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../contexts/AppContext';
-import { X, Package, DollarSign, FileText, Tag, Weight, Gift } from 'lucide-react';
+import { X, Package, DollarSign, FileText, Tag, Weight, Image } from 'lucide-react';
 import type { Product } from '../../types/index';
 
 interface ProductFormProps {
@@ -8,7 +8,6 @@ interface ProductFormProps {
   onClose: () => void;
   product?: Product;
   isEditing?: boolean;
-  isViewing?: boolean;
 }
 
 const ProductForm: React.FC<ProductFormProps> = ({
@@ -16,12 +15,10 @@ const ProductForm: React.FC<ProductFormProps> = ({
   onClose,
   product,
   isEditing = false,
-  isViewing = false
 }) => {
   const { addProduct, updateProduct, categories } = useApp();
   const [loading, setLoading] = useState(false);
 
-  // Estado do formulário
   const [formData, setFormData] = useState({
     name: product?.name || '',
     description: product?.description || '',
@@ -32,9 +29,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
     isActive: product?.isActive !== undefined ? product.isActive : true,
   });
 
-  // ✅ Novo useEffect para sincronizar o estado do formulário com as props
   useEffect(() => {
-    // Se o formulário estiver fechado, ou se for um novo produto, limpa o formulário
     if (!isOpen || !product) {
       setFormData({
         name: '',
@@ -46,7 +41,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
         isActive: true,
       });
     } else if (product) {
-      // Se estiver editando, preenche com os dados do produto
       setFormData({
         name: product.name,
         description: product.description,
@@ -110,7 +104,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
       <div className="bg-white rounded-xl shadow-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center border-b pb-4 mb-4">
           <h2 className="text-2xl font-bold text-gray-800">
-            {isViewing ? 'Visualizar Produto' : isEditing ? 'Editar Produto' : 'Novo Produto'}
+            {isEditing ? 'Editar Produto' : 'Novo Produto'}
           </h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
             <X size={24} />
@@ -128,9 +122,8 @@ const ProductForm: React.FC<ProductFormProps> = ({
                 value={formData.name}
                 onChange={handleChange}
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                placeholder="Ex: Pão de Mel"
+                placeholder="Ex: Panetone de Chocolate"
                 required
-                disabled={isViewing}
               />
             </div>
           </div>
@@ -145,8 +138,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                 onChange={handleChange}
                 rows={3}
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                placeholder="Ex: Delicioso pão de mel recheado com doce de leite caseiro."
-                disabled={isViewing}
+                placeholder="Ex: Delicioso panetone recheado com gotas de chocolate."
               ></textarea>
             </div>
           </div>
@@ -162,7 +154,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
                   onChange={handleChange}
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 appearance-none"
                   required
-                  disabled={isViewing}
                 >
                   <option value="">Selecione uma categoria</option>
                   {categories.map((cat) => (
@@ -192,7 +183,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
                   placeholder="25.00"
                   step="0.01"
                   required
-                  disabled={isViewing}
                 />
               </div>
             </div>
@@ -210,14 +200,13 @@ const ProductForm: React.FC<ProductFormProps> = ({
                   onChange={handleChange}
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                   placeholder="500"
-                  disabled={isViewing}
                 />
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">URL da Imagem</label>
               <div className="relative">
-                <Gift size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Image size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   name="image"
@@ -225,7 +214,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
                   onChange={handleChange}
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                   placeholder="https://exemplo.com/imagem.png"
-                  disabled={isViewing}
                 />
               </div>
             </div>
@@ -238,7 +226,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
               name="isActive"
               checked={formData.isActive}
               onChange={handleChange}
-              disabled={isViewing}
               className="h-4 w-4 text-orange-500"
             />
             <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
@@ -247,33 +234,20 @@ const ProductForm: React.FC<ProductFormProps> = ({
           </div>
 
           <div className="flex space-x-3 pt-4">
-            {!isViewing && (
-              <>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200 disabled:opacity-50"
-                >
-                  {loading ? 'Salvando...' : (isEditing ? 'Atualizar' : 'Cadastrar')}
-                </button>
-              </>
-            )}
-            {isViewing && (
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
-              >
-                Fechar
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200 disabled:opacity-50"
+            >
+              {loading ? 'Salvando...' : (isEditing ? 'Atualizar' : 'Cadastrar')}
+            </button>
           </div>
         </form>
       </div>

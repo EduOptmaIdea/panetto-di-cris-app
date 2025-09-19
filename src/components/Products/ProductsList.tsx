@@ -1,35 +1,69 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import ProductForm from '../Forms/ProductForm';
+import ProductView from './ProductView';
 import {
   Search,
   Plus,
   Edit,
   Eye,
   Tag,
-  TrendingUp,
   Package,
   Trash2,
-  CheckCircle,
-  XCircle
+  Filter,
+  SortAsc,
 } from 'lucide-react';
 import type { Product } from '../../types/index';
 
 const ProductsList: React.FC = () => {
-  const { products, categories, deleteProduct, updateProduct } = useApp();
+  const { products, categories, deleteProduct, orders } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [sortBy, setSortBy] = useState('active');
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
 
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = filterCategory === 'all' || product.category === filterCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredAndSortedProducts = useMemo(() => {
+    let list = [...products];
+
+    // 1. Filtragem por termo de busca
+    list = list.filter(product =>
+      product.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    // 2. Filtragem por categoria
+    if (filterCategory !== 'all') {
+      list = list.filter(product => product.category === filterCategory);
+    }
+
+    // 3. Filtragem por status (ativo/inativo)
+    if (filterStatus !== 'all') {
+      list = list.filter(product =>
+        filterStatus === 'active' ? product.isActive : !product.isActive
+      );
+    }
+
+    // 4. Ordenação
+    // Ordena primeiro por status (ativos primeiro)
+    list.sort((a, b) => (b.isActive ? 1 : 0) - (a.isActive ? 1 : 0));
+
+    // Aplica a ordenação secundária por nome ou categoria
+    if (sortBy === 'name') {
+      list.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortBy === 'category') {
+      list.sort((a, b) => {
+        const catA = categories.find(c => c.id === a.category)?.name || '';
+        const catB = categories.find(c => c.id === b.category)?.name || '';
+        return catA.localeCompare(catB);
+      });
+    }
+
+    return list;
+  }, [products, searchTerm, filterCategory, filterStatus, sortBy, categories]);
 
   const getCategoryName = (categoryId: string) => {
     const category = categories.find(cat => cat.id === categoryId);
@@ -41,24 +75,17 @@ const ProductsList: React.FC = () => {
     setShowForm(true);
   };
 
+  const handleView = (product: Product) => {
+    setViewingProduct(product);
+  };
+
   const handleCloseForm = () => {
     setShowForm(false);
     setEditingProduct(null);
+  };
+
+  const handleCloseView = () => {
     setViewingProduct(null);
-  };
-
-  const handleView = (product: Product) => {
-    setViewingProduct(product);
-    setShowForm(true);
-  };
-
-  const handleToggleActive = async (product: Product) => {
-    try {
-      await updateProduct(product.id, { isActive: !product.isActive });
-    } catch (error) {
-      console.error('Erro ao alternar status do produto:', error);
-      alert('Falha ao atualizar o status do produto. Tente novamente.');
-    }
   };
 
   const handleDelete = (product: Product) => {
@@ -79,6 +106,12 @@ const ProductsList: React.FC = () => {
     }
   };
 
+  const hasAssociatedOrders = (productId: string) => {
+    return orders.some(order =>
+      order.items.some(item => item.productId === productId)
+    );
+  };
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       <div className="flex justify-between items-center mb-6">
@@ -86,7 +119,6 @@ const ProductsList: React.FC = () => {
         <button
           onClick={() => {
             setEditingProduct(null);
-            setViewingProduct(null);
             setShowForm(true);
           }}
           className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-4 py-2 rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200 shadow-md flex items-center"
@@ -97,7 +129,8 @@ const ProductsList: React.FC = () => {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Campo de Busca */}
           <div className="md:col-span-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
@@ -110,6 +143,8 @@ const ProductsList: React.FC = () => {
               />
             </div>
           </div>
+
+          {/* Filtro por Categoria */}
           <div>
             <div className="relative">
               <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
@@ -125,69 +160,89 @@ const ProductsList: React.FC = () => {
               </select>
             </div>
           </div>
+
+          {/* Filtro por Status */}
+          <div>
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+              <select
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500 appearance-none"
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+              >
+                <option value="all">Todos os Status</option>
+                <option value="active">Ativo</option>
+                <option value="inactive">Inativo</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredProducts.length > 0 ? (
-          filteredProducts.map(product => (
-            <div key={product.id} className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-              {product.image && (
-                <div className="aspect-w-16 aspect-h-9">
+      {/* Opções de Ordenação */}
+      <div className="flex items-center space-x-2 mb-6">
+        <SortAsc className="w-5 h-5 text-gray-500" />
+        <span className="text-sm font-medium text-gray-700">Ordenar por:</span>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          className="text-sm border-gray-300 rounded-lg"
+        >
+          <option value="active">Status (Ativos primeiro)</option>
+          <option value="name">Nome (A-Z)</option>
+          <option value="category">Categoria</option>
+        </select>
+      </div>
+
+      {/* Seção da Listagem de Produtos (Layout de Lista) */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        {filteredAndSortedProducts.length > 0 ? (
+          <div className="divide-y divide-gray-200">
+            {/* Cabeçalho da Tabela */}
+            <div className="hidden lg:flex items-center justify-between p-4 bg-gray-50 text-sm font-semibold text-gray-600">
+              <div className="flex-1">Produto</div>
+              <div className="w-40 text-right">Preço</div>
+              <div className="w-24 text-center">Vendas</div>
+              <div className="w-24 text-center">Status</div>
+              <div className="w-40 text-right">Ações</div>
+            </div>
+
+            {filteredAndSortedProducts.map(product => (
+              <div key={product.id} className="flex flex-col lg:flex-row lg:items-center justify-between p-4 hover:bg-gray-50 transition-colors">
+
+                {/* Informações do Produto (Nome, Categoria, Imagem) */}
+                <div className="flex items-center space-x-4 flex-1 mb-4 lg:mb-0">
                   <img
-                    src={product.image}
+                    src={product.image || 'https://via.placeholder.com/64'}
                     alt={product.name}
-                    className="w-full h-48 object-cover object-center"
+                    className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
                   />
-                </div>
-              )}
-              <div className="p-5">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-1">{product.name}</h3>
-                    <p className="text-sm font-medium text-gray-500 mb-2">
-                      <span className="inline-flex items-center rounded-full bg-orange-100 px-3 py-0.5 text-sm font-medium text-orange-800">
-                        <Tag size={12} className="mr-1" />
-                        {getCategoryName(product.category)}
-                      </span>
-                    </p>
-                  </div>
-                  <div className="text-2xl font-bold text-orange-600">
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.price)}
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-bold text-gray-900">{product.name}</h3>
+                    <p className="text-sm text-gray-500 truncate">{getCategoryName(product.category)}</p>
                   </div>
                 </div>
-                <p className="text-gray-600 text-sm mt-2 line-clamp-2">
-                  {product.description}
-                </p>
 
-                <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
-                  <div className="flex items-center space-x-1">
-                    <TrendingUp size={16} />
-                    <span>Vendido: {product.totalSold}</span>
-                  </div>
-                  <div
-                    className={`flex items-center space-x-1 ${product.isActive ? 'text-green-600' : 'text-red-600'
-                      }`}
-                  >
-                    {product.isActive ? (
-                      <CheckCircle size={16} />
-                    ) : (
-                      <XCircle size={16} />
-                    )}
-                    <span>{product.isActive ? 'Ativo' : 'Inativo'}</span>
-                  </div>
+                {/* Preço (Mobile e Desktop) */}
+                <div className="w-40 text-left lg:text-right font-semibold text-gray-900 mb-2 lg:mb-0">
+                  <span className="lg:hidden font-medium">Preço: </span>
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.price)}
                 </div>
-              </div>
 
-              <div className="bg-gray-50 px-4 py-3 flex justify-between items-center border-t border-gray-200">
-                <button
-                  onClick={() => handleToggleActive(product)}
-                  className={`text-xs font-semibold uppercase ${product.isActive ? 'text-red-500' : 'text-green-500'
-                    } hover:underline`}
-                >
-                  {product.isActive ? 'Desativar' : 'Ativar'}
-                </button>
-                <div className="flex space-x-2">
+                {/* Vendas (Mobile e Desktop) */}
+                <div className="w-24 text-left lg:text-center text-gray-600 mb-2 lg:mb-0">
+                  <span className="lg:hidden font-medium">Vendas: </span>{product.totalSold}
+                </div>
+
+                {/* Status (Mobile e Desktop) */}
+                <div className="w-24 text-left lg:text-center mb-4 lg:mb-0">
+                  <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${product.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    {product.isActive ? 'Ativo' : 'Inativo'}
+                  </span>
+                </div>
+
+                {/* Ações */}
+                <div className="flex w-40 justify-end space-x-2">
                   <button
                     onClick={() => handleView(product)}
                     className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
@@ -204,15 +259,16 @@ const ProductsList: React.FC = () => {
                   </button>
                   <button
                     onClick={() => handleDelete(product)}
-                    className="p-2 text-red-500 hover:text-red-700 hover:bg-red-100 rounded-lg transition-colors"
-                    title="Excluir"
+                    disabled={hasAssociatedOrders(product.id)}
+                    className={`p-2 rounded-lg transition-colors ${hasAssociatedOrders(product.id) ? 'text-gray-400 cursor-not-allowed' : 'text-red-500 hover:text-red-700 hover:bg-red-100'}`}
+                    title={hasAssociatedOrders(product.id) ? "Não é possível excluir produto com pedidos associados" : "Excluir"}
                   >
                     <Trash2 size={20} />
                   </button>
                 </div>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         ) : (
           <div className="col-span-full">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
@@ -221,7 +277,7 @@ const ProductsList: React.FC = () => {
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum produto encontrado</h3>
               <p className="text-gray-600 mb-6">
-                {searchTerm || filterCategory !== 'all'
+                {searchTerm || filterCategory !== 'all' || filterStatus !== 'all'
                   ? 'Tente ajustar os filtros de busca'
                   : 'Você ainda não possui produtos cadastrados'}
               </p>
@@ -239,12 +295,16 @@ const ProductsList: React.FC = () => {
       <ProductForm
         isOpen={showForm}
         onClose={handleCloseForm}
-        product={(editingProduct || viewingProduct) ?? undefined}
+        product={editingProduct ?? undefined}
         isEditing={!!editingProduct}
-        isViewing={!!viewingProduct}
       />
 
-      {/* Modal de Confirmação de Exclusão */}
+      <ProductView
+        isOpen={!!viewingProduct}
+        onClose={handleCloseView}
+        product={viewingProduct ?? undefined}
+      />
+
       {showDeleteConfirmation && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full text-center">

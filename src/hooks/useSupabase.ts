@@ -113,7 +113,7 @@ export const useSupabaseData = () => {
       const formattedOrders = ordersData.map(o => ({
         ...o,
         orderNumber: o.order_number,
-        orderDate: new Date(o.order_date),
+        orderDate: o.order_date ? new Date(o.order_date) : null,
         customerId: o.customer_id,
         deliveryFee: o.delivery_fee,
         paymentStatus: o.payment_status,
@@ -121,6 +121,7 @@ export const useSupabaseData = () => {
         deliveryMethod: o.delivery_method,
         estimatedDelivery: o.estimated_delivery ? new Date(o.estimated_delivery) : null,
         completedAt: o.completed_at ? new Date(o.completed_at) : null,
+        items: o.items,
       }));
 
       setProducts(formattedProducts);
@@ -286,14 +287,36 @@ return;
 
   const deleteProduct = useCallback(async (id: string) => {
     try {
+      const hasOrders = orders.some(order => 
+        order.items.some(item => item.productId === id)
+      );
+
+      if (hasOrders) {
+        addNotification({
+          title: 'Erro ao excluir produto',
+          message: 'Não é possível excluir um produto que está em um ou mais pedidos.',
+          type: 'error',
+        });
+        return;
+      }
+
       const { error } = await supabase.from('products').delete().eq('id', id);
       if (error) throw error;
       await fetchData();
+      addNotification({
+        title: 'Produto excluído',
+        message: 'Produto excluído com sucesso!',
+        type: 'success',
+      });
     } catch (err) {
       console.error('Error deleting product:', err);
-      throw err;
+      addNotification({
+        title: 'Erro ao excluir produto',
+        message: 'Falha ao excluir produto.',
+        type: 'error',
+      });
     }
-  }, [fetchData]);
+  }, [fetchData, orders, addNotification]);
 
   const addCustomer = useCallback(async (customer: Omit<Customer, 'id' | 'createdAt' | 'isGiftEligible' | 'totalOrders' | 'totalSpent' | 'completedOrders' | 'cancelledOrders' | 'pendingOrders' | 'paidSpent' | 'pendingSpent'>) => {
     try {

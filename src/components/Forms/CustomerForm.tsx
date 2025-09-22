@@ -8,7 +8,6 @@ interface CustomerFormProps {
   onClose: () => void;
   customer?: Customer;
   isEditing?: boolean;
-  isViewing?: boolean;
 }
 
 // Função para formatar o endereço como string para o banco de dados
@@ -74,7 +73,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
   onClose,
   customer,
   isEditing = false,
-  isViewing = false
 }) => {
   const { addCustomer, updateCustomer } = useApp();
   const [loading, setLoading] = useState(false);
@@ -96,7 +94,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
     deliveryPreferences: customer?.deliveryPreferences || '',
   });
 
-  // ✅ Limpa o formulário para um novo cliente ou preenche para edição/visualização
   useEffect(() => {
     if (customer) {
       const parsedAddress = parseAddressFromString(customer.address);
@@ -154,7 +151,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
           name: formData.name,
           whatsapp: formData.whatsapp,
           email: formData.email,
-          address: formattedAddress, // ✅ Envia como string
+          address: formattedAddress,
           observations: formData.observations,
           deliveryPreferences: formData.deliveryPreferences,
         });
@@ -163,7 +160,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
           name: formData.name,
           whatsapp: formData.whatsapp,
           email: formData.email,
-          address: formattedAddress, // ✅ Envia como string
+          address: formattedAddress,
           observations: formData.observations,
           deliveryPreferences: formData.deliveryPreferences,
         });
@@ -213,7 +210,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
       <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-xl font-bold text-gray-900">
-            {isViewing ? 'Visualizar Cliente' : isEditing ? 'Editar Cliente' : 'Novo Cliente'}
+            {isEditing ? 'Editar Cliente' : 'Novo Cliente'}
           </h2>
           <button
             onClick={onClose}
@@ -234,7 +231,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
               name="name"
               value={formData.name}
               onChange={handleChange}
-              disabled={isViewing}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
               placeholder="Digite o nome completo"
@@ -251,7 +247,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
               name="whatsapp"
               value={formData.whatsapp}
               onChange={handleChange}
-              disabled={isViewing}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
               placeholder="(11) 99999-9999"
@@ -268,7 +263,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
               name="email"
               value={formData.email}
               onChange={handleChange}
-              disabled={isViewing}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
               placeholder="seu@email.com"
             />
@@ -291,7 +285,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                     name="street"
                     value={formData.street}
                     onChange={handleAddressChange}
-                    disabled={isViewing}
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     placeholder="Rua, Av., Alameda, etc."
@@ -306,7 +299,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                     name="number"
                     value={formData.number}
                     onChange={handleAddressChange}
-                    disabled={isViewing}
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     placeholder="0 para S/N"
@@ -321,7 +313,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                     name="neighborhood"
                     value={formData.neighborhood}
                     onChange={handleAddressChange}
-                    disabled={isViewing}
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     placeholder="Centro"
@@ -336,7 +327,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                     name="city"
                     value={formData.city}
                     onChange={handleAddressChange}
-                    disabled={isViewing}
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     placeholder="Goiânia"
@@ -351,7 +341,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                     name="state"
                     value={formData.state}
                     onChange={handleAddressChange}
-                    disabled={isViewing}
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     placeholder="GO"
@@ -366,7 +355,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                     name="zipcode"
                     value={formData.zipcode}
                     onChange={handleAddressChange}
-                    disabled={isViewing}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     placeholder="74000-000"
                   />
@@ -381,7 +369,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                   name="notes"
                   value={formData.notes || ''}
                   onChange={handleAddressChange}
-                  disabled={isViewing}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   placeholder="Apto 101, Bloco A"
                 />
@@ -399,7 +386,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
               name="deliveryPreferences"
               value={formData.deliveryPreferences}
               onChange={handleChange}
-              disabled={isViewing}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
               placeholder="Ex: Portão azul, interfone 123"
             />
@@ -414,7 +400,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
               name="observations"
               value={formData.observations}
               onChange={handleChange}
-              disabled={isViewing}
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
               placeholder="Observações gerais sobre o cliente"
@@ -422,33 +407,20 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
           </div>
 
           <div className="flex space-x-3 pt-4">
-            {!isViewing && (
-              <>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200 disabled:opacity-50"
-                >
-                  {loading ? 'Salvando...' : (isEditing ? 'Atualizar' : 'Cadastrar')}
-                </button>
-              </>
-            )}
-            {isViewing && (
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
-              >
-                Fechar
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200 disabled:opacity-50"
+            >
+              {loading ? 'Salvando...' : (isEditing ? 'Atualizar' : 'Cadastrar')}
+            </button>
           </div>
         </form>
       </div>

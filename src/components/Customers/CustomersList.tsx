@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import CustomerForm from '../Forms/CustomerForm';
+import CustomerView from './CustomerView'; // ✅ Importa o novo componente
 import {
   Search,
   Plus,
@@ -8,45 +9,69 @@ import {
   DollarSign,
   Edit,
   Eye,
-  Wallet,
+  Trash2,
   User,
   ChevronDown,
   ChevronUp,
-  // CreditCard
 } from 'lucide-react';
 import { Customer, Order } from '../../types/index';
 
 const CustomersList: React.FC = () => {
-  const { customers, orders, loading, error } = useApp();
+  const { customers, orders, loading, error, deleteCustomer } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
 
-  const filteredCustomers = customers.filter(customer =>
-    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (customer.whatsapp && customer.whatsapp.includes(searchTerm))
-  );
+  const filteredCustomers = useMemo(() => {
+    return customers.filter(customer =>
+      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (customer.whatsapp && customer.whatsapp.includes(searchTerm))
+    );
+  }, [customers, searchTerm]);
 
   const handleEdit = (customer: Customer) => {
     setEditingCustomer(customer);
     setShowForm(true);
   };
 
+  // ✅ Nova função para abrir a visualização
   const handleView = (customer: Customer) => {
     setViewingCustomer(customer);
-    setShowForm(true);
+  };
+
+  const handleCloseView = () => {
+    setViewingCustomer(null);
   };
 
   const handleCloseForm = () => {
     setShowForm(false);
     setEditingCustomer(null);
-    setViewingCustomer(null);
   };
 
-  const toggleDropdown = (customerId: string) => {
-    setOpenDropdown(openDropdown === customerId ? null : customerId);
+  // ✅ Lógica de exclusão
+  const handleDelete = (customer: Customer) => {
+    setCustomerToDelete(customer);
+    setShowDeleteConfirmation(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (customerToDelete) {
+      try {
+        await deleteCustomer(customerToDelete.id);
+        setShowDeleteConfirmation(false);
+        setCustomerToDelete(null);
+      } catch (err) {
+        console.error('Erro ao excluir cliente:', err);
+      }
+    }
+  };
+
+  // ✅ Função para verificar se o cliente tem pedidos
+  const hasAssociatedOrders = (customerId: string) => {
+    return orders.some(order => order.customerId === customerId);
   };
 
   const getStatusBadge = (status: Order['status']) => {
@@ -119,7 +144,7 @@ const CustomersList: React.FC = () => {
         <div className="bg-white shadow-sm rounded-lg border border-gray-200">
           <ul className="divide-y divide-gray-200">
             {filteredCustomers.map((customer) => {
-              const customerOrders = orders.filter(order => order.customerId === customer.id);
+              const hasOrders = hasAssociatedOrders(customer.id);
               return (
                 <li key={customer.id}>
                   <div className="flex items-center justify-between p-4 sm:p-6 hover:bg-gray-50">
@@ -146,7 +171,7 @@ const CustomersList: React.FC = () => {
                       </div>
                       {customer.is_gift_eligible && (
                         <div className="flex items-center space-x-1 text-orange-500 font-medium">
-                          <Wallet className="w-4 h-4" />
+                          {/* <Wallet className="w-4 h-4" /> */}
                           <span>Brinde</span>
                         </div>
                       )}
@@ -168,58 +193,15 @@ const CustomersList: React.FC = () => {
                         <Edit className="w-5 h-5" />
                       </button>
                       <button
-                        onClick={() => toggleDropdown(customer.id)}
-                        className="p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-full hover:bg-gray-100"
-                        title="Expandir"
+                        onClick={() => handleDelete(customer)}
+                        disabled={hasOrders}
+                        className={`p-2 rounded-lg transition-colors ${hasOrders ? 'text-gray-400 cursor-not-allowed' : 'text-red-500 hover:bg-red-50'}`}
+                        title={hasOrders ? "Não é possível excluir cliente com pedidos associados" : "Excluir Cliente"}
                       >
-                        {openDropdown === customer.id ? (
-                          <ChevronUp className="w-5 h-5" />
-                        ) : (
-                          <ChevronDown className="w-5 h-5" />
-                        )}
+                        <Trash2 className="w-5 h-5" />
                       </button>
                     </div>
                   </div>
-
-                  {openDropdown === customer.id && (
-                    <div className="p-4 sm:p-6 bg-gray-100 border-t border-gray-200">
-                      <h4 className="text-lg font-bold text-gray-800 mb-4">Últimos Pedidos</h4>
-                      {customerOrders.length > 0 ? (
-                        <div className="overflow-x-auto"> {/* ✅ Adicionado overflow-x-auto */}
-                          <ul className="space-y-4 min-w-max">
-                            {customerOrders.map(order => (
-                              <li key={order.id} className="bg-white p-4 rounded-lg shadow-sm">
-                                <div className="flex justify-between items-center text-sm font-medium text-gray-900 mb-2">
-                                  <span>Pedido #{order.order_number}</span> {/* ✅ Corrigido o nome da propriedade */}
-                                  <span className="text-gray-500 text-xs">
-                                    {order.orderDate ? new Date(order.orderDate).toLocaleDateString('pt-BR') : 'Data não disponível'}
-                                  </span>
-                                </div>
-                                <div className="flex items-center justify-between text-sm">
-                                  <div className="flex items-center space-x-4">
-                                    <div className="flex items-center space-x-1">
-                                      <ShoppingBag className="w-4 h-4 text-gray-500" />
-                                      <span>{order.items.length} itens</span>
-                                    </div>
-                                    <div className="flex items-center space-x-1">
-                                      <DollarSign className="w-4 h-4 text-gray-500" />
-                                      <span>R$ {order.total.toFixed(2)}</span>
-                                    </div>
-                                  </div>
-                                  <div className="space-x-2">
-                                    <span className={getStatusBadge(order.status)}>{order.status}</span>
-                                    <span className={getPaymentStatusBadge(order.paymentStatus)}>{order.paymentStatus}</span>
-                                  </div>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : (
-                        <p className="text-gray-500 text-sm italic">Este cliente não possui pedidos.</p>
-                      )}
-                    </div>
-                  )}
                 </li>
               );
             })}
@@ -245,13 +227,45 @@ const CustomersList: React.FC = () => {
         </div>
       )}
 
+      {/* Modal para Adicionar/Editar */}
       <CustomerForm
         isOpen={showForm}
         onClose={handleCloseForm}
-        customer={(editingCustomer || viewingCustomer) ?? undefined}
+        customer={editingCustomer ?? undefined}
         isEditing={!!editingCustomer}
-        isViewing={!!viewingCustomer}
       />
+
+      {/* Modal para Visualização */}
+      <CustomerView
+        isOpen={!!viewingCustomer}
+        onClose={handleCloseView}
+        customer={viewingCustomer ?? undefined}
+      />
+
+      {/* Modal de Confirmação de Exclusão */}
+      {showDeleteConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full text-center">
+            <Trash2 className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-xl font-bold mb-2">Confirmar Exclusão</h3>
+            <p className="text-gray-600 mb-4">Tem certeza de que deseja excluir o cliente "{customerToDelete?.name}"? Esta ação é irreversível.</p>
+            <div className="flex justify-center space-x-4">
+              <button
+                onClick={() => setShowDeleteConfirmation(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

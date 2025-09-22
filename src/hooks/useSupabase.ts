@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { useAuth } from './useAuth';
-import { useNotifications } from './useNotifications';
+import { useAuth } from '../hooks/useAuth';
+import { useNotifications } from '../hooks/useNotifications';
 import type { Customer, Product, ProductCategory, Order, OrderItem, PriceHistory} from '../types';
 
 type SupabaseProductRow = {
@@ -359,6 +359,37 @@ return;
     }
   }, [fetchData]);
   
+  // ✅ Nova função para deletar clientes
+  const deleteCustomer = useCallback(async (id: string) => {
+    try {
+      const hasOrders = orders.some(order => order.customerId === id);
+      if (hasOrders) {
+        addNotification({
+          title: 'Erro ao excluir cliente',
+          message: 'Não é possível excluir um cliente com pedidos associados.',
+          type: 'error',
+        });
+        return;
+      }
+      
+      const { error } = await supabase.from('customers').delete().eq('id', id);
+      if (error) throw error;
+      await fetchData();
+      addNotification({
+        title: 'Cliente excluído',
+        message: 'Cliente excluído com sucesso!',
+        type: 'success',
+      });
+    } catch (err) {
+      console.error('Error deleting customer:', err);
+      addNotification({
+        title: 'Erro ao excluir cliente',
+        message: 'Falha ao excluir cliente.',
+        type: 'error',
+      });
+    }
+  }, [fetchData, orders, addNotification]);
+
   const addOrder = useCallback(async (order: Omit<Order, 'id' | 'orderDate' | 'customer' | 'order_number'> & { items: OrderItem[]; order_number?: number }) => {
     try {
       const { error } = await supabase
@@ -441,11 +472,19 @@ return;
           fetchData();
         })
         .subscribe();
+        
+      const ordersChannel = supabase
+        .channel('orders_changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+          fetchData();
+        })
+        .subscribe();
 
       return () => {
         supabase.removeChannel(productChannel);
         supabase.removeChannel(categoriesChannel);
         supabase.removeChannel(customersChannel);
+        supabase.removeChannel(ordersChannel);
       };
     } else {
       setCustomers([]);
@@ -474,6 +513,7 @@ return;
     deleteCategory,
     addOrder,
     updateOrder,
+    deleteCustomer, // ✅ Adicionado ao objeto de retorno
     refetch: fetchData,
   };
 };

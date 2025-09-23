@@ -1,26 +1,26 @@
 import React, { useState } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import OrderForm from '../Forms/OrderForm';
+import OrderView from './OrderView';
 import {
   Search,
   Filter,
   Plus,
   Eye,
   Edit,
-  X,
   Calendar,
   DollarSign,
   Truck,
-  User
+  User,
 } from 'lucide-react';
-import type { Order, OrderStatus, PaymentStatus } from '../../types';
+import type { Order } from '../../types';
 
 const formatOrderNumber = (number: number): string => {
   return number.toString().padStart(4, '0');
 };
 
 const OrdersList: React.FC = () => {
-  const { orders, updateOrder } = useApp();
+  const { orders } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showForm, setShowForm] = useState(false);
@@ -29,7 +29,7 @@ const OrdersList: React.FC = () => {
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.id.includes(searchTerm);
+      (order.number && order.number.toString().includes(searchTerm));
     const matchesFilter = filterStatus === 'all' || order.status === filterStatus;
     return matchesSearch && matchesFilter;
   });
@@ -99,13 +99,6 @@ const OrdersList: React.FC = () => {
     setEditingOrder(null);
   };
 
-  // ✅ Função getOrderDiscountTotal agora é utilizada
-  const getOrderDiscountTotal = (order: Order) => {
-    const itemsDiscount = order.items.reduce((sum, item) => sum + (item.itemDiscount || 0) * item.quantity, 0);
-    const orderDiscount = order.orderDiscount || 0;
-    return itemsDiscount + orderDiscount;
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -167,7 +160,7 @@ const OrdersList: React.FC = () => {
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <div className="flex items-center space-x-3 mb-2">
-                          <h3 className="text-lg font-semibold text-gray-900">Pedido #{formatOrderNumber(order.order_number ?? 0)}</h3>
+                          <h3 className="text-lg font-semibold text-gray-900">Pedido #{formatOrderNumber(order.number ?? 0)}</h3>
                           <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusBadge(order.status)}`}>
                             {getStatusLabel(order.status)}
                           </span>
@@ -213,7 +206,6 @@ const OrdersList: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Order Items Summary */}
                     <div className="mt-3 p-3 bg-gray-50 rounded-lg">
                       <div className="flex flex-wrap gap-2">
                         {order.items.slice(0, 3).map((item, index) => (
@@ -272,184 +264,28 @@ const OrdersList: React.FC = () => {
         )}
       </div>
 
-      <OrderForm
-        isOpen={showForm}
-        onClose={() => setShowForm(false)}
-      />
+      {showForm && (
+        <OrderForm
+          isOpen={showForm}
+          onClose={() => setShowForm(false)}
+        />
+      )}
 
-      {/* Order Details Modal */}
-      {(viewingOrder || editingOrder) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b">
-              <h2 className="text-xl font-bold text-gray-900">
-                {editingOrder ? 'Editar Pedido' : 'Detalhes do Pedido'} Pedido #{formatOrderNumber((viewingOrder || editingOrder)?.order_number ?? 0)}
-              </h2>
-              <button
-                onClick={handleCloseOrderDetails}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {viewingOrder && (
+        <OrderView
+          isOpen={!!viewingOrder}
+          onClose={handleCloseOrderDetails}
+          order={viewingOrder}
+        />
+      )}
 
-            <div className="p-6 space-y-6">
-              {/* Customer Info */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Informações do Cliente</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600">Nome</p>
-                    <p className="font-medium">{(viewingOrder || editingOrder)?.customer.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">WhatsApp</p>
-                    <p className="font-medium">{(viewingOrder || editingOrder)?.customer.whatsapp}</p>
-                  </div>
-                  <div className="md:col-span-2">
-                    <p className="text-sm text-gray-600">Endereço</p>
-                    <p className="font-medium">{(viewingOrder || editingOrder)?.customer.address}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Order Items */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Itens do Pedido</h3>
-                <div className="space-y-2">
-                  {(viewingOrder || editingOrder)?.items.map((item, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div>
-                        <p className="font-medium">{item.product.name}</p>
-                        <p className="text-sm text-gray-600">Quantidade: {item.quantity}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium">
-                          {item.itemDiscount && item.itemDiscount > 0 ? (
-                            <span className="line-through text-gray-500 mr-2">
-                              R$ {item.unitPrice.toFixed(2)}
-                            </span>
-                          ) : null}
-                          R$ {item.finalUnitPrice?.toFixed(2) || item.unitPrice.toFixed(2)}
-                        </p>
-                        {item.itemDiscount && item.itemDiscount > 0 && (
-                          <p className="text-sm text-red-600">
-                            Desconto: R$ {item.itemDiscount.toFixed(2)}
-                          </p>
-                        )}
-                        <p className="text-sm text-gray-600">Total: R$ {item.total.toFixed(2)}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Order Summary */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Resumo do Pedido</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Subtotal Bruto:</span>
-                    <span>R$ {(viewingOrder || editingOrder)?.subtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Desconto nos Itens:</span>
-                    <span className="text-red-600">
-                      - R$ {((viewingOrder || editingOrder)?.totalItemsDiscount ?? 0).toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Desconto Geral:</span>
-                    <span className="text-red-600">
-                      - R$ {((viewingOrder || editingOrder)?.orderDiscount ?? 0).toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Taxa de Entrega:</span>
-                    <span>R$ {(viewingOrder || editingOrder)?.deliveryFee.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-lg border-t pt-2">
-                    <span>Total:</span>
-                    <span>R$ {(viewingOrder || editingOrder)?.total.toFixed(2)}</span>
-                  </div>
-                  {/* Total de Descontos (calculado) */}
-                  <div className="flex justify-between text-sm text-red-600">
-                    <span>Total de Descontos:</span>
-                    <span>- R$ {getOrderDiscountTotal(viewingOrder || editingOrder!).toFixed(2)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Order Status */}
-              {editingOrder && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">Status do Pedido</label>
-                    <select
-                      value={editingOrder.status}
-                      onChange={(e) => setEditingOrder({
-                        ...editingOrder,
-                        status: e.target.value as OrderStatus
-                      })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                    >
-                      <option value="pending">Pendente</option>
-                      <option value="confirmed">Confirmado</option>
-                      <option value="preparing">Preparando</option>
-                      <option value="ready">Pronto</option>
-                      <option value="delivered">Entregue</option>
-                      <option value="cancelled">Cancelado</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">Status do Pagamento</label>
-                    <select
-                      value={editingOrder.paymentStatus}
-                      onChange={(e) => setEditingOrder({
-                        ...editingOrder,
-                        paymentStatus: e.target.value as PaymentStatus
-                      })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                    >
-                      <option value="pending">Pendente</option>
-                      <option value="paid">Pago</option>
-                      <option value="cancelled">Cancelado</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex space-x-3 pt-4 border-t">
-                <button
-                  onClick={handleCloseOrderDetails}
-                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                >
-                  {editingOrder ? 'Cancelar' : 'Fechar'}
-                </button>
-                {editingOrder && (
-                  <button
-                    onClick={async () => {
-                      try {
-                        await updateOrder(editingOrder.id, {
-                          status: editingOrder.status,
-                          paymentStatus: editingOrder.paymentStatus
-                        });
-                        handleCloseOrderDetails();
-                      } catch (error) {
-                        console.error('Erro ao atualizar pedido:', error);
-                        alert('Erro ao atualizar pedido');
-                      }
-                    }}
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200"
-                  >
-                    Salvar Alterações
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+      {editingOrder && (
+        <OrderForm
+          isOpen={!!editingOrder}
+          onClose={handleCloseOrderDetails}
+          order={editingOrder}
+          isEditing={true}
+        />
       )}
     </div>
   );

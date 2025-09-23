@@ -74,7 +74,7 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
-  order_number?: number;
+  number?: number; // ✅ A propriedade agora é 'number'
   customerId: string;
   customer: Customer;
   items: OrderItem[];

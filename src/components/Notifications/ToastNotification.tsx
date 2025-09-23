@@ -3,7 +3,7 @@ import { useNotifications } from '../../hooks/useNotifications';
 import { X, CheckCircle, AlertTriangle, AlertCircle, Info } from 'lucide-react';
 
 const ToastNotification: React.FC = () => {
-  const { notifications } = useNotifications();
+  const { notifications, removeNotification } = useNotifications();
   const [visibleToasts, setVisibleToasts] = useState<string[]>([]);
 
   // Mostrar apenas as 3 notificações mais recentes como toast
@@ -21,11 +21,11 @@ const ToastNotification: React.FC = () => {
       // Auto-remover após 5 segundos
       newToasts.forEach(toastId => {
         setTimeout(() => {
-          setVisibleToasts(prev => prev.filter(id => id !== toastId));
+          removeNotification(toastId);
         }, 5000);
       });
     }
-  }, [recentNotifications, visibleToasts]);
+  }, [recentNotifications, visibleToasts, removeNotification]);
 
   const getToastIcon = (type: string) => {
     switch (type) {
@@ -53,9 +53,9 @@ const ToastNotification: React.FC = () => {
     }
   };
 
-  const removeToast = (toastId: string) => {
-    setVisibleToasts(prev => prev.filter(id => id !== toastId));
-  };
+  const removeVisibleToast = (toastId: string) => {
+    removeNotification(toastId);
+  }
 
   const visibleNotifications = recentNotifications.filter(n =>
     visibleToasts.includes(n.id)
@@ -87,7 +87,7 @@ const ToastNotification: React.FC = () => {
                 <button
                   onClick={() => {
                     notification.action!.onClick();
-                    removeToast(notification.id);
+                    removeVisibleToast(notification.id);
                   }}
                   className="mt-2 text-xs bg-white px-2 py-1 rounded border hover:bg-gray-50 transition-colors"
                 >
@@ -97,7 +97,7 @@ const ToastNotification: React.FC = () => {
             </div>
 
             <button
-              onClick={() => removeToast(notification.id)}
+              onClick={() => removeVisibleToast(notification.id)}
               className="flex-shrink-0 p-1 text-gray-400 hover:text-gray-600 transition-colors"
             >
               <X className="w-4 h-4" />

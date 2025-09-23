@@ -42,7 +42,7 @@ export const useSupabaseData = () => {
         supabase.from('product_categories').select('*').order('name', { ascending: true }),
         supabase.from('products').select('*').order('name', { ascending: true }),
         supabase.from('customers').select('*').order('name', { ascending: true }),
-        supabase.from('orders').select('*, customer:customer_id(*), items:order_items(*)').order('created_at', { ascending: false })
+        supabase.from('orders').select('*, customer:customer_id(*), items:order_items(*, product:product_id(*))').order('created_at', { ascending: false })
       ]);
 
       if (categoriesError) throw categoriesError;
@@ -107,13 +107,13 @@ export const useSupabaseData = () => {
         pendingSpent: c.pending_spent,
       }));
 
-      const { data: ordersData, error: ordersError } = await supabase.from('orders').select('*, customer:customer_id(*), items:order_items(*)');
+      const { data: ordersData, error: ordersError } = await supabase.from('orders').select('*, customer:customer_id(*), items:order_items(*, product:product_id(*))').order('created_at', { ascending: false });
       if (ordersError) throw ordersError;
       
       const formattedOrders = ordersData.map(o => ({
         ...o,
-        orderNumber: o.order_number,
-        orderDate: o.order_date ? new Date(o.order_date) : null,
+        orderNumber: o.number,
+        orderDate: o.created_at ? new Date(o.created_at) : null,
         customerId: o.customer_id,
         deliveryFee: o.delivery_fee,
         paymentStatus: o.payment_status,
@@ -122,6 +122,8 @@ export const useSupabaseData = () => {
         estimatedDelivery: o.estimated_delivery ? new Date(o.estimated_delivery) : null,
         completedAt: o.completed_at ? new Date(o.completed_at) : null,
         items: o.items,
+        orderDiscount: o.order_discount,
+        totalItemsDiscount: o.total_items_discount,
       }));
 
       setProducts(formattedProducts);
@@ -391,7 +393,17 @@ return;
 
   const addOrder = useCallback(async (order: Omit<Order, 'id' | 'orderDate' | 'customer' | 'order_number'> & { items: OrderItem[]; order_number?: number }) => {
     try {
-      const { error } = await supabase
+      // 1. Obter e incrementar o número do pedido
+      const { data: counter } = await supabase
+        .from('counters')
+        .select('last_number')
+        .eq('name', 'order_number')
+        .maybeSingle();
+      
+      let newOrderNumber = (counter?.last_number || 0) + 1;
+      
+      // 2. Inserir o novo pedido
+      const { data: newOrderData, error: orderError } = await supabase
         .from('orders')
         .insert({
           customer_id: order.customerId,
@@ -405,15 +417,49 @@ return;
           notes: order.notes,
           estimated_delivery: order.estimatedDelivery?.toISOString(),
           completed_at: order.completedAt?.toISOString(),
-        });
-      if (error) throw error;
-      await fetchData();
+          number: newOrderNumber,
+          order_discount: order.orderDiscount,
+          total_items_discount: order.totalItemsDiscount,
+        })
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+      
+      // 3. Atualizar ou inserir o contador
+      const { error: counterUpdateError } = await supabase
+        .from('counters')
+        .upsert({ name: 'order_number', last_number: newOrderNumber }, { onConflict: 'name' });
+      if (counterUpdateError) throw counterUpdateError;
+
+      // 4. Inserir os itens do pedido
+      const orderItemsToInsert = order.items.map(item => ({
+        order_id: newOrderData.id,
+        product_id: item.productId,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        total: item.total,
+        item_discount: item.itemDiscount,
+        final_unit_price: item.finalUnitPrice,
+      }));
+
+      const { error: itemsError } = await supabase.from('order_items').insert(orderItemsToInsert);
+      if (itemsError) throw itemsError;
+
+      // 5. Atualizar os totais do cliente
       await updateCustomerTotals(order.customerId);
+      
+      await fetchData();
     } catch (err) {
       console.error('Error adding order:', err);
+      addNotification({
+        title: 'Erro ao criar pedido',
+        message: 'Não foi possível criar o pedido. Tente novamente.',
+        type: 'error',
+      });
       throw err;
     }
-  }, [fetchData, updateCustomerTotals]);
+  }, [fetchData, updateCustomerTotals, addNotification]);
 
   const updateOrder = useCallback(async (id: string, orderData: Partial<Order>) => {
     try {
@@ -512,7 +558,7 @@ return;
     deleteCategory,
     addOrder,
     updateOrder,
-    deleteCustomer, // ✅ Adicionado ao objeto de retorno
+    deleteCustomer,
     refetch: fetchData,
   };
 };

@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
-import { v4 as uuidv4 } from 'uuid'; // ✅ Importação da função v4 da biblioteca uuid
+import { v4 as uuidv4 } from 'uuid';
 
 export interface Notification {
   id: string;
@@ -58,7 +58,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
     const newNotification: Notification = {
       ...notification,
-      id: uuidv4(), // ✅ Substituído crypto.randomUUID() por uuidv4()
+      id: uuidv4(),
       timestamp: new Date(),
       read: false,
     };
@@ -127,7 +127,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         (payload) => {
           addNotification({
             title: '🛒 Novo Pedido!',
-            message: `Pedido #${payload.new.id} foi criado`,
+            // ✅ Corrigido para mostrar o número do pedido em vez do ID
+            message: `Pedido #${payload.new.number} foi criado`,
             type: 'info',
             action: {
               label: 'Ver Pedido',
@@ -160,7 +161,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
             addNotification({
               title: 'Status Atualizado',
-              message: `Pedido #${payload.new.id}: ${statusMessages[newStatus as keyof typeof statusMessages] || newStatus}`,
+              // ✅ Corrigido para mostrar o número do pedido em vez do ID
+              message: `Pedido #${payload.new.number}: ${statusMessages[newStatus as keyof typeof statusMessages] || newStatus}`,
               type: newStatus === 'cancelled' ? 'warning' : 'success',
             });
           }

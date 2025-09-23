@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import { X, User, ShoppingCart, Plus, Minus, Truck, CreditCard } from 'lucide-react';
-import { OrderItem } from '../../types';
+import type { Order } from '../../types';
 
 interface OrderFormProps {
   isOpen: boolean;
   onClose: () => void;
+  order?: Order;
+  isEditing?: boolean;
 }
 
-// ✅ Função para formatar valores em Reais
 const formatCurrency = (value: number | string): string => {
   const numericValue = typeof value === 'string' ? parseFloat(value) : value;
   if (isNaN(numericValue)) return 'R$ 0,00';
@@ -18,39 +19,55 @@ const formatCurrency = (value: number | string): string => {
   }).format(numericValue);
 };
 
-const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
-  const { addOrder, customers, products } = useApp();
+const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, order, isEditing }) => {
+  const { addOrder, updateOrder, customers, products } = useApp();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    customerId: '',
-    deliveryMethod: 'pickup' as 'pickup' | 'delivery',
-    paymentMethod: 'cash' as 'cash' | 'card' | 'pix' | 'transfer',
-    salesChannel: 'direct' as 'direct' | 'whatsapp' | '99food' | 'ifood',
-    deliveryFee: 0,
-    orderDiscount: 0,
-    notes: '',
-    estimatedDelivery: '',
+    customerId: order?.customerId || '',
+    deliveryMethod: order?.deliveryMethod || 'pickup' as 'pickup' | 'delivery',
+    paymentMethod: order?.paymentMethod || 'cash' as 'cash' | 'card' | 'pix' | 'transfer',
+    salesChannel: order?.salesChannel || 'direct' as 'direct' | 'whatsapp' | '99food' | 'ifood',
+    deliveryFee: order?.deliveryFee || 0,
+    orderDiscount: order?.orderDiscount || 0,
+    notes: order?.notes || '',
+    estimatedDelivery: order?.estimatedDelivery ? order.estimatedDelivery.toISOString().split('T')[0] : '',
   });
 
   const [orderItems, setOrderItems] = useState<{ [key: string]: number }>({});
   const [itemDiscounts, setItemDiscounts] = useState<{ [key: string]: number }>({});
 
+  useEffect(() => {
+    if (order) {
+      const itemsMap = order.items.reduce((acc, item) => {
+        acc[item.productId] = item.quantity;
+        return acc;
+      }, {} as { [key: string]: number });
+
+      const discountsMap = order.items.reduce((acc, item) => {
+        if (item.itemDiscount) {
+          acc[item.productId] = item.itemDiscount;
+        }
+        return acc;
+      }, {} as { [key: string]: number });
+
+      setOrderItems(itemsMap);
+      setItemDiscounts(discountsMap);
+    }
+  }, [order]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (Object.keys(orderItems).length === 0) {
       alert('Adicione pelo menos um produto ao pedido');
       return;
     }
-
     setLoading(true);
 
     try {
       let totalItemsDiscount = 0;
-      const items: OrderItem[] = Object.entries(orderItems).map(([productId, quantity]) => {
+      const items = Object.entries(orderItems).map(([productId, quantity]) => {
         const product = products.find(p => p.id === productId);
         if (!product) throw new Error('Produto não encontrado');
-
         const discount = itemDiscounts[productId] || 0;
         const finalUnitPrice = product.price - discount;
         const total = finalUnitPrice * quantity;
@@ -78,8 +95,8 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
         total,
         orderDiscount: formData.orderDiscount,
         totalItemsDiscount,
-        status: 'pending' as const,
-        paymentStatus: 'pending' as const,
+        status: order?.status || 'pending' as const,
+        paymentStatus: order?.paymentStatus || 'pending' as const,
         paymentMethod: formData.paymentMethod,
         deliveryMethod: formData.deliveryMethod,
         salesChannel: formData.salesChannel,
@@ -87,7 +104,11 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
         notes: formData.notes,
       };
 
-      await addOrder(orderData);
+      if (isEditing && order) {
+        await updateOrder(order.id, orderData);
+      } else {
+        await addOrder(orderData);
+      }
       onClose();
 
       setFormData({
@@ -102,6 +123,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
       });
       setOrderItems({});
       setItemDiscounts({});
+
     } catch (error) {
       console.error('Erro ao criar pedido:', error);
       alert('Erro ao criar pedido. Tente novamente.');
@@ -125,14 +147,14 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
     }));
   };
 
-  const addProduct = (productId: string) => {
+  const handleAddProduct = (productId: string) => {
     setOrderItems(prev => ({
       ...prev,
       [productId]: (prev[productId] || 0) + 1,
     }));
   };
 
-  const removeProduct = (productId: string) => {
+  const handleRemoveProduct = (productId: string) => {
     setOrderItems(prev => {
       const newItems = { ...prev };
       if (newItems[productId] > 1) {
@@ -186,7 +208,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-xl font-bold text-gray-900">Novo Pedido</h2>
+          <h2 className="text-xl font-bold text-gray-900">{isEditing ? 'Editar Pedido' : 'Novo Pedido'}</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -259,7 +281,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
                       <>
                         <button
                           type="button"
-                          onClick={() => removeProduct(product.id)}
+                          onClick={() => handleRemoveProduct(product.id)}
                           className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center"
                         >
                           <Minus className="w-4 h-4" />
@@ -269,7 +291,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
                         </span>
                         <button
                           type="button"
-                          onClick={() => addProduct(product.id)}
+                          onClick={() => handleAddProduct(product.id)}
                           className="w-8 h-8 bg-orange-500 hover:bg-orange-600 text-white rounded-full flex items-center justify-center"
                         >
                           <Plus className="w-4 h-4" />
@@ -278,7 +300,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
                     ) : (
                       <button
                         type="button"
-                        onClick={() => addProduct(product.id)}
+                        onClick={() => handleAddProduct(product.id)}
                         className="px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm"
                       >
                         Adicionar
@@ -338,7 +360,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
                 value={formData.deliveryFee}
                 onChange={handleChange}
                 min="0"
-                step="0.50"
+                step="0.05"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 placeholder="0,00"
               />
@@ -354,7 +376,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
                 value={formData.orderDiscount}
                 onChange={handleChange}
                 min="0"
-                step="0.50"
+                step="0.05"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 placeholder="0,00"
               />
@@ -421,7 +443,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose }) => {
               disabled={loading}
               className="flex-1 px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200 disabled:opacity-50"
             >
-              {loading ? 'Criando...' : 'Criar Pedido'}
+              {loading ? 'Salvando...' : (isEditing ? 'Atualizar' : 'Criar Pedido')}
             </button>
           </div>
         </form>

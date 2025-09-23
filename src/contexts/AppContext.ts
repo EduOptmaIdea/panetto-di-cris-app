@@ -14,6 +14,8 @@ interface AppContextType {
   // CRUD operations
   addCustomer: (customer: Omit<Customer, 'id' | 'createdAt' | 'isGiftEligible' | 'totalOrders' | 'totalSpent' | 'completedOrders' | 'cancelledOrders' | 'pendingOrders' | 'paidSpent' | 'pendingSpent'>) => Promise<void>;
   updateCustomer: (id: string, customer: Partial<Customer>) => Promise<void>;
+  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'totalSold' | 'priceHistory'>) => Promise<void>;
+  updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
   addCategory: (category: Pick<ProductCategory, 'name' | 'description' | 'isActive'>) => Promise<void>;
   updateCategory: (id: string, updates: Partial<ProductCategory>) => Promise<void>;
@@ -25,7 +27,7 @@ interface AppContextType {
     }
   ) => Promise<void>;
   updateOrder: (id: string, order: Partial<Order>) => Promise<void>;
-  deleteCustomer: (id: string) => Promise<void>; // ✅ deleteCustomer adicionado aqui
+  deleteCustomer: (id: string) => Promise<void>;
   refetch: () => Promise<void>;
 }
 

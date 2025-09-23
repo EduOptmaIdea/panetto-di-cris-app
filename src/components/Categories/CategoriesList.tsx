@@ -159,7 +159,7 @@ const CategoriesList: React.FC = () => {
                 isOpen={!!productToView}
                 onClose={handleCloseProductView}
                 product={productToView || undefined}
-                isViewing={true}
+            //isViewing={true}
             />
         </div>
     );

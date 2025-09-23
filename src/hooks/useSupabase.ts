@@ -359,7 +359,6 @@ return;
     }
   }, [fetchData]);
   
-  // ✅ Nova função para deletar clientes
   const deleteCustomer = useCallback(async (id: string) => {
     try {
       const hasOrders = orders.some(order => order.customerId === id);

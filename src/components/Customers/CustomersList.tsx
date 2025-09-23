@@ -1,20 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import CustomerForm from '../Forms/CustomerForm';
-import CustomerView from './CustomerView'; // ✅ Importa o novo componente
+import CustomerView from './CustomerView';
 import {
   Search,
   Plus,
-  ShoppingBag,
-  DollarSign,
   Edit,
   Eye,
   Trash2,
   User,
-  ChevronDown,
-  ChevronUp,
 } from 'lucide-react';
-import { Customer, Order } from '../../types/index';
+import { Customer } from '../../types/index';
 
 const CustomersList: React.FC = () => {
   const { customers, orders, loading, error, deleteCustomer } = useApp();
@@ -37,7 +33,6 @@ const CustomersList: React.FC = () => {
     setShowForm(true);
   };
 
-  // ✅ Nova função para abrir a visualização
   const handleView = (customer: Customer) => {
     setViewingCustomer(customer);
   };
@@ -51,7 +46,6 @@ const CustomersList: React.FC = () => {
     setEditingCustomer(null);
   };
 
-  // ✅ Lógica de exclusão
   const handleDelete = (customer: Customer) => {
     setCustomerToDelete(customer);
     setShowDeleteConfirmation(true);
@@ -69,41 +63,17 @@ const CustomersList: React.FC = () => {
     }
   };
 
-  // ✅ Função para verificar se o cliente tem pedidos
   const hasAssociatedOrders = (customerId: string) => {
     return orders.some(order => order.customerId === customerId);
   };
 
-  const getStatusBadge = (status: Order['status']) => {
-    const badges = {
-      pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      confirmed: 'bg-blue-100 text-blue-800 border-blue-200',
-      preparing: 'bg-orange-100 text-orange-800 border-orange-200',
-      ready: 'bg-green-100 text-green-800 border-green-200',
-      delivered: 'bg-green-100 text-green-800 border-green-200',
-      cancelled: 'bg-red-100 text-red-800 border-red-200',
-    };
-    return `px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${badges[status]}`;
-  };
-
-  const getPaymentStatusBadge = (status: Order['paymentStatus']) => {
-    const badges = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      paid: 'bg-green-100 text-green-800',
-      cancelled: 'bg-red-100 text-red-800',
-    };
-    return `px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${badges[status]}`;
-  };
-
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Clientes</h1>
           <p className="text-gray-600">Gerencie a sua base de clientes.</p>
         </div>
-
         <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
           <div className="relative w-full sm:max-w-xs">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -130,8 +100,6 @@ const CustomersList: React.FC = () => {
           </button>
         </div>
       </div>
-
-      {/* Customer List */}
       {loading ? (
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-orange-500"></div>
@@ -147,37 +115,17 @@ const CustomersList: React.FC = () => {
               const hasOrders = hasAssociatedOrders(customer.id);
               return (
                 <li key={customer.id}>
-                  <div className="flex items-center justify-between p-4 sm:p-6 hover:bg-gray-50">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 flex-shrink-0">
-                          <User className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{customer.name}</p>
-                          <p className="text-xs text-gray-500 truncate">{customer.whatsapp}</p>
-                        </div>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 sm:p-6 hover:bg-gray-50">
+                    <div className="flex-1 min-w-0 flex items-center space-x-3 mb-2 sm:mb-0">
+                      <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 flex-shrink-0">
+                        <User className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{customer.name}</p>
+                        <p className="text-xs text-gray-500 truncate">{customer.whatsapp}</p>
                       </div>
                     </div>
-
-                    <div className="hidden sm:flex items-center space-x-6 text-sm text-gray-600">
-                      <div className="flex items-center space-x-1">
-                        <ShoppingBag className="w-4 h-4 text-gray-400" />
-                        <span>{customer.completedOrders ?? 0}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <DollarSign className="w-4 h-4 text-gray-400" />
-                        <span>R$ {(customer.paidSpent ?? 0).toFixed(2)}</span>
-                      </div>
-                      {customer.is_gift_eligible && (
-                        <div className="flex items-center space-x-1 text-orange-500 font-medium">
-                          {/* <Wallet className="w-4 h-4" /> */}
-                          <span>Brinde</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="ml-4 flex-shrink-0 flex items-center space-x-2 sm:space-x-3">
+                    <div className="flex items-center space-x-2 ml-auto sm:ml-0">
                       <button
                         onClick={() => handleView(customer)}
                         className="p-2 text-gray-400 hover:text-orange-500 transition-colors rounded-full hover:bg-gray-100"
@@ -226,23 +174,17 @@ const CustomersList: React.FC = () => {
           </button>
         </div>
       )}
-
-      {/* Modal para Adicionar/Editar */}
       <CustomerForm
         isOpen={showForm}
         onClose={handleCloseForm}
         customer={editingCustomer ?? undefined}
         isEditing={!!editingCustomer}
       />
-
-      {/* Modal para Visualização */}
       <CustomerView
         isOpen={!!viewingCustomer}
         onClose={handleCloseView}
         customer={viewingCustomer ?? undefined}
       />
-
-      {/* Modal de Confirmação de Exclusão */}
       {showDeleteConfirmation && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full text-center">

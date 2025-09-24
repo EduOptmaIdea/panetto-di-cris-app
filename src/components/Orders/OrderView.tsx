@@ -61,7 +61,7 @@ const OrderView: React.FC<OrderViewProps> = ({ isOpen, onClose, order }) => {
     if (!isOpen || !order) return null;
 
     const getOrderDiscountTotal = () => {
-        const itemsDiscount = order.items.reduce((sum, item) => sum + (item.itemDiscount || 0) * item.quantity, 0);
+        const itemsDiscount = order.items.reduce((sum, item) => sum + (item.item_discount || 0) * item.quantity, 0);
         const orderDiscount = order.orderDiscount || 0;
         return itemsDiscount + orderDiscount;
     };
@@ -133,16 +133,16 @@ const OrderView: React.FC<OrderViewProps> = ({ isOpen, onClose, order }) => {
                                     </div>
                                     <div className="text-right">
                                         <p className="font-medium text-gray-900">
-                                            {item.itemDiscount && item.itemDiscount > 0 ? (
-                                                <span className="line-through text-gray-500 mr-2">
-                                                    {formatCurrency(item.unitPrice)}
+                                            {item.item_discount && item.item_discount > 0 ? (
+                                                <span className="line-through text-red-500 mr-2">
+                                                    {formatCurrency(item.unit_price)}
                                                 </span>
                                             ) : null}
-                                            {formatCurrency(item.finalUnitPrice || item.unitPrice)}
+                                            {formatCurrency(item.final_unit_price)}
                                         </p>
-                                        {item.itemDiscount && item.itemDiscount > 0 && (
-                                            <p className="text-sm text-red-600">
-                                                Desconto por item: {formatCurrency(item.itemDiscount)}
+                                        {item.item_discount && item.item_discount > 0 && (
+                                            <p className="text-sm text-blue-400">
+                                                Desconto por item: {formatCurrency(item.item_discount)}
                                             </p>
                                         )}
                                     </div>

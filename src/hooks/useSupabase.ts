@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useNotifications } from '../hooks/useNotifications';
-import type { Customer, Product, ProductCategory, Order, OrderItem, PriceHistory} from '../types';
+import type { Customer, Product, ProductCategory, Order, OrderItem, PriceHistory } from '../types';
 
 type SupabaseProductRow = {
   id: string;
@@ -42,7 +42,6 @@ export const useSupabaseData = () => {
         supabase.from('product_categories').select('*').order('name', { ascending: true }),
         supabase.from('products').select('*').order('name', { ascending: true }),
         supabase.from('customers').select('*').order('name', { ascending: true }),
-        supabase.from('orders').select('*, customer:customer_id(*), items:order_items(*, product:product_id(*))').order('created_at', { ascending: false })
       ]);
 
       if (categoriesError) throw categoriesError;
@@ -170,7 +169,7 @@ export const useSupabaseData = () => {
     if (updateError) {
       console.error('Error updating customer totals:', updateError);
     }
-  }, [fetchData]);
+  }, []);
 
   const addCategory = useCallback(async (category: Pick<ProductCategory, 'name' | 'description' | 'isActive'>) => {
     try {
@@ -217,28 +216,28 @@ export const useSupabaseData = () => {
 
       if (count && count > 0) {
         addNotification({
-  title: 'Erro ao excluir categoria',
-  message: `Não é possível excluir a categoria com ${count} produto(s) vinculado(s).`,
-  type: 'error',
-});
-return;
+          title: 'Erro ao excluir categoria',
+          message: `Não é possível excluir a categoria com ${count} produto(s) vinculado(s).`,
+          type: 'error',
+        });
+        return;
       }
 
       const { error } = await supabase.from('product_categories').delete().eq('id', id);
       if (error) throw error;
       await fetchData();
       addNotification({
-  title: 'Categoria excluída',
-  message: 'Categoria excluída com sucesso!',
-  type: 'success',
-});
+        title: 'Categoria excluída',
+        message: 'Categoria excluída com sucesso!',
+        type: 'success',
+      });
     } catch (err) {
       console.error('Error deleting category:', err);
       addNotification({
-  title: 'Erro ao excluir categoria',
-  message: 'Falha ao excluir categoria.',
-  type: 'error',
-});
+        title: 'Erro ao excluir categoria',
+        message: 'Falha ao excluir categoria.',
+        type: 'error',
+      });
     }
   }, [fetchData, addNotification]);
 
@@ -420,6 +419,7 @@ return;
           number: newOrderNumber,
           order_discount: order.orderDiscount,
           total_items_discount: order.totalItemsDiscount,
+          sales_channel: order.salesChannel,
         })
         .select()
         .single();
@@ -437,10 +437,10 @@ return;
         order_id: newOrderData.id,
         product_id: item.productId,
         quantity: item.quantity,
-        unit_price: item.unitPrice,
+        unit_price: item.unit_price,
         total: item.total,
-        item_discount: item.itemDiscount,
-        final_unit_price: item.finalUnitPrice,
+        item_discount: item.item_discount,
+        final_unit_price: item.final_unit_price,
       }));
 
       const { error: itemsError } = await supabase.from('order_items').insert(orderItemsToInsert);
@@ -461,37 +461,84 @@ return;
     }
   }, [fetchData, updateCustomerTotals, addNotification]);
 
+  // ✅ FUNÇÃO CORRIGIDA: updateOrder
   const updateOrder = useCallback(async (id: string, orderData: Partial<Order>) => {
     try {
-      const { error } = await supabase
+      // 1. Atualizar o pedido principal
+      const { error: orderUpdateError } = await supabase
         .from('orders')
         .update({
+          customer_id: orderData.customerId,
           status: orderData.status,
           payment_status: orderData.paymentStatus,
           payment_method: orderData.paymentMethod,
           delivery_method: orderData.deliveryMethod,
+          subtotal: orderData.subtotal,
+          delivery_fee: orderData.deliveryFee,
+          total: orderData.total,
+          notes: orderData.notes,
           estimated_delivery: orderData.estimatedDelivery?.toISOString(),
           completed_at: orderData.completedAt?.toISOString(),
-          notes: orderData.notes,
+          order_discount: orderData.orderDiscount,
+          total_items_discount: orderData.totalItemsDiscount,
+          sales_channel: orderData.salesChannel,
         })
         .eq('id', id);
-      if (error) throw error;
-      await fetchData();
-      
-      const { data: updatedOrder, error: fetchError } = await supabase
+
+      if (orderUpdateError) throw orderUpdateError;
+
+      // 2. Se houver itens, atualizar order_items
+      if (orderData.items && Array.isArray(orderData.items)) {
+        // 2a. Deletar todos os itens antigos
+        const { error: deleteError } = await supabase
+          .from('order_items')
+          .delete()
+          .eq('order_id', id);
+
+        if (deleteError) throw deleteError;
+
+        // 2b. Inserir novos itens
+        const orderItemsToInsert = orderData.items.map(item => ({
+          order_id: id,
+          product_id: item.productId,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total: item.total,
+          item_discount: item.item_discount,
+          final_unit_price: item.final_unit_price,
+        }));
+
+        const { error: insertError } = await supabase
+          .from('order_items')
+          .insert(orderItemsToInsert);
+
+        if (insertError) throw insertError;
+      }
+
+      // 3. Atualizar os totais do cliente
+      const customerId = orderData.customerId || (await supabase
         .from('orders')
         .select('customer_id')
         .eq('id', id)
-        .single();
-      if (fetchError) throw fetchError;
-      if (updatedOrder.customer_id) {
-          await updateCustomerTotals(updatedOrder.customer_id);
+        .single()
+        .then(res => res.data?.customer_id));
+
+      if (customerId) {
+        await updateCustomerTotals(customerId);
       }
+
+      // 4. Recarregar todos os dados
+      await fetchData();
     } catch (err) {
       console.error('Error updating order:', err);
+      addNotification({
+        title: 'Erro ao atualizar pedido',
+        message: 'Não foi possível atualizar o pedido. Tente novamente.',
+        type: 'error',
+      });
       throw err;
     }
-  }, [fetchData, updateCustomerTotals]);
+  }, [fetchData, updateCustomerTotals, addNotification]);
 
   useEffect(() => {
     if (user) {

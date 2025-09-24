@@ -114,7 +114,7 @@ const CustomerView: React.FC<CustomerViewProps> = ({ isOpen, onClose, customer }
                                 {customerOrders.map(order => (
                                     <li key={order.id} className="bg-gray-50 p-4 rounded-lg shadow-sm">
                                         <div className="flex justify-between items-center text-sm font-medium text-gray-900 mb-2">
-                                            <span>Pedido #{order.order_number}</span>
+                                            <span>Pedido #{order.number}</span>
                                             <span className="text-gray-500 text-xs">
                                                 {order.orderDate ? format(order.orderDate, 'dd/MM/yyyy', { locale: ptBR }) : 'Data não disponível'}
                                             </span>

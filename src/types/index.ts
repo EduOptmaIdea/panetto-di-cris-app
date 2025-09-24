@@ -66,10 +66,10 @@ export interface OrderItem {
   productId: string;
   product: Product;
   quantity: number;
-  unitPrice: number;
+  unit_price: number;
   total: number;
-  itemDiscount?: number; // ✅ Novo campo
-  finalUnitPrice?: number; // ✅ Novo campo
+  item_discount: number; // ✅ Novo campo
+  final_unit_price: number; // ✅ Novo campo
 }
 
 export interface Order {

@@ -44,12 +44,12 @@ const PerformanceMetrics: React.FC = () => {
 
     // Taxa de conversão (pedidos confirmados vs total)
     const confirmedOrders = orders.filter(order =>
-      ['confirmed', 'preparing', 'ready', 'delivered'].includes(order.status)
+      ['confirmed', 'preparing', 'ready', 'delivered'].includes(order.currentStatus)
     );
     const conversionRate = orders.length > 0 ? (confirmedOrders.length / orders.length) * 100 : 0;
 
-    // Tempo médio de preparo (estimativa baseada em status)
-    const deliveredOrders = orders.filter(order => order.status === 'delivered' && order.completedAt);
+    // Tempo médio de preparo (estimativa baseada em currentStatus)
+    const deliveredOrders = orders.filter(order => order.currentStatus === 'delivered' && order.completedAt);
     const avgPreparationTime = deliveredOrders.length > 0
       ? deliveredOrders.reduce((sum, order) => {
         const start = new Date(order.orderDate!);
@@ -60,11 +60,11 @@ const PerformanceMetrics: React.FC = () => {
 
     // Faturamento hoje vs ontem
     const todayRevenue = todayOrders
-      .filter(order => order.paymentStatus === 'paid')
+      .filter(order => order.currentPaymentStatus === 'paid')
       .reduce((sum, order) => sum + order.total, 0);
 
     const yesterdayRevenue = yesterdayOrders
-      .filter(order => order.paymentStatus === 'paid')
+      .filter(order => order.currentPaymentStatus === 'paid')
       .reduce((sum, order) => sum + order.total, 0);
 
     const revenueChange = yesterdayRevenue > 0
@@ -72,7 +72,7 @@ const PerformanceMetrics: React.FC = () => {
       : 0;
 
     // Taxa de cancelamento
-    const cancelledOrders = orders.filter(order => order.status === 'cancelled');
+    const cancelledOrders = orders.filter(order => order.currentStatus === 'cancelled');
     const cancellationRate = orders.length > 0 ? (cancelledOrders.length / orders.length) * 100 : 0;
 
     return {

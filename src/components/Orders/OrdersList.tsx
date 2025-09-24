@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import OrderForm from '../Forms/OrderForm';
 import OrderView from './OrderView';
@@ -12,7 +12,10 @@ import {
   DollarSign,
   Truck,
   User,
-  Trash2, // <-- ÍCONE ADICIONADO
+  Trash2,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import type { Order } from '../../types';
 
@@ -20,20 +23,69 @@ const formatOrderNumber = (number: number): string => {
   return number.toString().padStart(4, '0');
 };
 
+type SortKey = 'number' | 'orderDate' | 'customerName';
+
 const OrdersList: React.FC = () => {
-  const { orders, deleteOrder } = useApp(); // <-- deleteOrder adicionado
+  const { orders, deleteOrder } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterPaymentStatus, setFilterPaymentStatus] = useState('all');
   const [showForm, setShowForm] = useState(false);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>('orderDate');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (order.number && order.number.toString().includes(searchTerm));
-    const matchesFilter = filterStatus === 'all' || order.status === filterStatus;
-    return matchesSearch && matchesFilter;
-  });
+  const sortedAndFilteredOrders = useMemo(() => {
+    const filtered = orders.filter(order => {
+      const customerName = order.customer?.name || '';
+      const matchesSearch =
+        customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (order.number && order.number.toString().includes(searchTerm));
+      const matchesStatusFilter = filterStatus === 'all' || order.currentStatus === filterStatus;
+      const matchesPaymentFilter = filterPaymentStatus === 'all' || order.currentPaymentStatus === filterPaymentStatus;
+
+      return matchesSearch && matchesStatusFilter && matchesPaymentFilter;
+    });
+
+    return filtered.sort((a, b) => {
+      let valA: any;
+      let valB: any;
+
+      switch (sortKey) {
+        case 'customerName':
+          valA = a.customer?.name?.toLowerCase() || '';
+          valB = b.customer?.name?.toLowerCase() || '';
+          break;
+        case 'number':
+          valA = a.number || 0;
+          valB = b.number || 0;
+          break;
+        case 'orderDate':
+        default:
+          valA = a.orderDate ? new Date(a.orderDate).getTime() : 0;
+          valB = b.orderDate ? new Date(b.orderDate).getTime() : 0;
+          break;
+      }
+
+      if (valA < valB) {
+        return sortDirection === 'asc' ? -1 : 1;
+      }
+      if (valA > valB) {
+        return sortDirection === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+  }, [orders, searchTerm, filterStatus, filterPaymentStatus, sortKey, sortDirection]);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDirection('asc');
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     const badges = {
@@ -100,6 +152,22 @@ const OrdersList: React.FC = () => {
     setEditingOrder(null);
   };
 
+  const SortButton = ({ sortValue, label }: { sortValue: SortKey, label: string }) => {
+    const isActive = sortKey === sortValue;
+    return (
+      <button
+        onClick={() => handleSort(sortValue)}
+        className={`flex items-center space-x-1 px-3 py-1.5 text-sm rounded-lg transition-colors ${isActive ? 'bg-orange-100 text-orange-700' : 'text-gray-600 hover:bg-gray-100'}`}
+      >
+        <span>{label}</span>
+        {isActive ? (
+          sortDirection === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />
+        ) : <ArrowUpDown className="w-4 h-4 text-gray-400" />}
+      </button>
+    );
+  };
+
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -148,13 +216,33 @@ const OrdersList: React.FC = () => {
               <option value="cancelled">Cancelado</option>
             </select>
           </div>
+
+          <div className="flex items-center space-x-2">
+            <DollarSign className="w-5 h-5 text-gray-400" />
+            <select
+              value={filterPaymentStatus}
+              onChange={(e) => setFilterPaymentStatus(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+            >
+              <option value="all">Todos os Pagamentos</option>
+              <option value="pending">Pendente</option>
+              <option value="paid">Pago</option>
+              <option value="cancelled">Cancelado</option>
+            </select>
+          </div>
+        </div>
+        <div className="flex items-center space-x-2 mt-4 pt-4 border-t">
+          <span className="text-sm font-medium text-gray-600">Ordenar por:</span>
+          <SortButton sortValue="orderDate" label="Data" />
+          <SortButton sortValue="number" label="Número" />
+          <SortButton sortValue="customerName" label="Cliente" />
         </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        {filteredOrders.length > 0 ? (
+        {sortedAndFilteredOrders.length > 0 ? (
           <div className="divide-y divide-gray-200">
-            {filteredOrders.map((order) => (
+            {sortedAndFilteredOrders.map((order) => (
               <div key={order.id} className="p-6 hover:bg-gray-50 transition-colors">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                   <div className="flex-1">
@@ -162,18 +250,18 @@ const OrdersList: React.FC = () => {
                       <div>
                         <div className="flex items-center space-x-3 mb-2">
                           <h3 className="text-lg font-semibold text-gray-900">Pedido #{formatOrderNumber(order.number ?? 0)}</h3>
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusBadge(order.status)}`}>
-                            {getStatusLabel(order.status)}
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusBadge(order.currentStatus)}`}>
+                            {getStatusLabel(order.currentStatus)}
                           </span>
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getPaymentBadge(order.paymentStatus)}`}>
-                            {getPaymentLabel(order.paymentStatus)}
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getPaymentBadge(order.currentPaymentStatus)}`}>
+                            {getPaymentLabel(order.currentPaymentStatus)}
                           </span>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600">
                           <div className="flex items-center space-x-2">
                             <User className="w-4 h-4" />
-                            <span>{order.customer.name}</span>
+                            <span>{order.customer?.name}</span>
                           </div>
 
                           <div className="flex items-center space-x-2">
@@ -198,8 +286,8 @@ const OrdersList: React.FC = () => {
 
                       <div className="text-right">
                         <p className="text-xl font-bold text-gray-900 flex items-center">
-                          <DollarSign className="w-5 h-5" />
-                          R$ {order.total.toFixed(2)}
+                          <DollarSign className="w-5 h-5 mr-1" />
+                          {order.total.toFixed(2)}
                         </p>
                         <p className="text-sm text-gray-600">
                           {order.items.length} {order.items.length === 1 ? 'item' : 'itens'}
@@ -240,7 +328,6 @@ const OrdersList: React.FC = () => {
                       <span>Editar</span>
                     </button>
 
-                    {/* ✅ BOTÃO DE EXCLUSÃO */}
                     <button
                       onClick={() => {
                         if (window.confirm(`Excluir pedido #${formatOrderNumber(order.number ?? 0)}? Esta ação é irreversível.`)) {
@@ -306,3 +393,4 @@ const OrdersList: React.FC = () => {
 };
 
 export default OrdersList;
+

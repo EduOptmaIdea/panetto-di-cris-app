@@ -74,17 +74,18 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
-  number?: number; // ✅ A propriedade agora é 'number'
+  number?: number;
   customerId: string;
   customer: Customer;
   items: OrderItem[];
   subtotal: number;
   deliveryFee: number;
   total: number;
-  orderDiscount?: number; // ✅ Novo campo
-  totalItemsDiscount?: number; // ✅ Novo campo
-  status: OrderStatus;
-  paymentStatus: PaymentStatus;
+  orderDiscount?: number;
+  totalItemsDiscount?: number;
+  // ✅ ATUALIZADO: Usando os novos nomes
+  currentStatus: OrderStatus;
+  currentPaymentStatus: PaymentStatus;
   paymentMethod: PaymentMethod;
   deliveryMethod: DeliveryMethod;
   salesChannel: SalesChannel;

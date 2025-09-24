@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+triggers_supabase
 
 
 # Editor directories and files
@@ -25,4 +26,5 @@ dist-ssr
 *.sln
 *.sw?
 .env
+triggers_supabase
 

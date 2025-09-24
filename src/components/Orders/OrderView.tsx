@@ -104,11 +104,11 @@ const OrderView: React.FC<OrderViewProps> = ({ isOpen, onClose, order }) => {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600">
                             <div>
                                 <p>Status:</p>
-                                <span className={getStatusBadge(order.status)}>{getStatusLabel(order.status)}</span>
+                                <span className={getStatusBadge(order.currentStatus)}>{getStatusLabel(order.currentStatus)}</span>
                             </div>
                             <div>
                                 <p>Pagamento:</p>
-                                <span className={getPaymentBadge(order.paymentStatus)}>{getPaymentLabel(order.paymentStatus)}</span>
+                                <span className={getPaymentBadge(order.currentPaymentStatus)}>{getPaymentLabel(order.currentPaymentStatus)}</span>
                             </div>
                             <div>
                                 <p>Método de Pagamento:</p>

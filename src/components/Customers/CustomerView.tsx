@@ -131,7 +131,7 @@ const CustomerView: React.FC<CustomerViewProps> = ({ isOpen, onClose, customer }
                                                 </div>
                                             </div>
                                             <div>
-                                                <span className={getStatusBadge(order.status)}>{order.status}</span>
+                                                <span className={getStatusBadge(order.currentStatus)}>{order.currentStatus}</span>
                                             </div>
                                         </div>
                                     </li>

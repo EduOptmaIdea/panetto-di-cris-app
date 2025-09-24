@@ -12,17 +12,14 @@ import {
   Pie,
   Cell,
   Area,
-  AreaChart
+  AreaChart,
 } from 'recharts';
 import {
-  // TrendingUp,
   DollarSign,
   ShoppingCart,
   Users,
-  // Package,
-  // Calendar,
   Award,
-  Target
+  Target,
 } from 'lucide-react';
 import { format, subDays, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -31,106 +28,105 @@ import ReportsExport from './ReportsExport';
 const AnalyticsDashboard: React.FC = () => {
   const { orders, customers, products } = useApp();
 
-  // Cálculos de métricas
   const analytics = useMemo(() => {
     const now = new Date();
     const thirtyDaysAgo = subDays(now, 30);
     const currentMonth = {
       start: startOfMonth(now),
-      end: endOfMonth(now)
+      end: endOfMonth(now),
     };
 
     // Pedidos do mês atual
-    const currentMonthOrders = orders.filter(order => {
+    const currentMonthOrders = orders.filter((order) => {
       if (!order.orderDate) return false;
       const orderDate = new Date(order.orderDate);
-      if (isNaN(orderDate.getTime())) return false; // ✅ Adicionada verificação de data inválida
+      if (isNaN(orderDate.getTime())) return false;
       return orderDate >= currentMonth.start && orderDate <= currentMonth.end;
     });
 
     // Faturamento total
     const totalRevenue = orders
-      .filter(order => order.paymentStatus === 'paid')
+      .filter((order) => order.currentPaymentStatus === 'paid')
       .reduce((sum, order) => sum + order.total, 0);
 
     // Faturamento do mês
     const monthlyRevenue = currentMonthOrders
-      .filter(order => order.paymentStatus === 'paid')
+      .filter((order) => order.currentPaymentStatus === 'paid')
       .reduce((sum, order) => sum + order.total, 0);
 
     // Ticket médio
-    const paidOrders = orders.filter(order => order.paymentStatus === 'paid');
+    const paidOrders = orders.filter((order) => order.currentPaymentStatus === 'paid');
     const averageTicket = paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0;
 
     // Produtos mais vendidos
-    const productSales = products.map(product => {
+    const productSales = products.map((product) => {
       const totalSold = orders.reduce((sum, order) => {
-        const productItems = order.items.filter(item => item.productId === product.id);
+        const productItems = order.items.filter((item) => item.productId === product.id);
         return sum + productItems.reduce((itemSum, item) => itemSum + item.quantity, 0);
       }, 0);
 
       const totalRevenue = orders.reduce((sum, order) => {
-        const productItems = order.items.filter(item => item.productId === product.id);
+        const productItems = order.items.filter((item) => item.productId === product.id);
         return sum + productItems.reduce((itemSum, item) => itemSum + item.total, 0);
       }, 0);
 
       return {
         name: product.name,
         quantity: totalSold,
-        revenue: totalRevenue
+        revenue: totalRevenue,
       };
     }).sort((a, b) => b.quantity - a.quantity);
 
     // Vendas por dia (últimos 30 dias)
     const dailySales = eachDayOfInterval({
       start: thirtyDaysAgo,
-      end: now
-    }).map(date => {
-      const dayOrders = orders.filter(order => {
+      end: now,
+    }).map((date) => {
+      const dayOrders = orders.filter((order) => {
         if (!order.orderDate) return false;
         const orderDate = new Date(order.orderDate);
-        if (isNaN(orderDate.getTime())) return false; // ✅ Adicionada verificação de data inválida
+        if (isNaN(orderDate.getTime())) return false;
         return format(orderDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
       });
 
       const dayRevenue = dayOrders
-        .filter(order => order.paymentStatus === 'paid')
+        .filter((order) => order.currentPaymentStatus === 'paid')
         .reduce((sum, order) => sum + order.total, 0);
 
       return {
         date: format(date, 'dd/MM', { locale: ptBR }),
         fullDate: format(date, 'dd/MM/yyyy', { locale: ptBR }),
         orders: dayOrders.length,
-        revenue: dayRevenue
+        revenue: dayRevenue,
       };
     });
 
     // Status dos pedidos
     const ordersByStatus = [
-      { name: 'Pendente', value: orders.filter(o => o.status === 'pending').length, color: '#f59e0b' },
-      { name: 'Confirmado', value: orders.filter(o => o.status === 'confirmed').length, color: '#3b82f6' },
-      { name: 'Preparando', value: orders.filter(o => o.status === 'preparing').length, color: '#f97316' },
-      { name: 'Pronto', value: orders.filter(o => o.status === 'ready').length, color: '#10b981' },
-      { name: 'Entregue', value: orders.filter(o => o.status === 'delivered').length, color: '#6b7280' },
-      { name: 'Cancelado', value: orders.filter(o => o.status === 'cancelled').length, color: '#ef4444' }
-    ].filter(item => item.value > 0);
+      { name: 'Pendente', value: orders.filter((o) => o.currentStatus === 'pending').length, color: '#f59e0b' },
+      { name: 'Confirmado', value: orders.filter((o) => o.currentStatus === 'confirmed').length, color: '#3b82f6' },
+      { name: 'Preparando', value: orders.filter((o) => o.currentStatus === 'preparing').length, color: '#f97316' },
+      { name: 'Pronto', value: orders.filter((o) => o.currentStatus === 'ready').length, color: '#10b981' },
+      { name: 'Entregue', value: orders.filter((o) => o.currentStatus === 'delivered').length, color: '#6b7280' },
+      { name: 'Cancelado', value: orders.filter((o) => o.currentStatus === 'cancelled').length, color: '#ef4444' },
+    ].filter((item) => item.value > 0);
 
     // Canais de venda
     const salesChannels = [
-      { name: 'Direto', value: orders.filter(o => o.salesChannel === 'direct').length, color: '#8b5cf6' },
-      { name: 'WhatsApp', value: orders.filter(o => o.salesChannel === 'whatsapp').length, color: '#10b981' },
-      { name: '99Food', value: orders.filter(o => o.salesChannel === '99food').length, color: '#f59e0b' },
-      { name: 'iFood', value: orders.filter(o => o.salesChannel === 'ifood').length, color: '#ef4444' }
-    ].filter(item => item.value > 0);
+      { name: 'Direto', value: orders.filter((o) => o.salesChannel === 'direct').length, color: '#8b5cf6' },
+      { name: 'WhatsApp', value: orders.filter((o) => o.salesChannel === 'whatsapp').length, color: '#10b981' },
+      { name: '99Food', value: orders.filter((o) => o.salesChannel === '99food').length, color: '#f59e0b' },
+      { name: 'iFood', value: orders.filter((o) => o.salesChannel === 'ifood').length, color: '#ef4444' },
+    ].filter((item) => item.value > 0);
 
     // Clientes mais ativos
     const topCustomers = customers
       .sort((a, b) => b.totalSpent - a.totalSpent)
       .slice(0, 5)
-      .map(customer => ({
+      .map((customer) => ({
         name: customer.name,
         orders: customer.totalOrders,
-        spent: customer.totalSpent
+        spent: customer.totalSpent,
       }));
 
     return {
@@ -140,12 +136,12 @@ const AnalyticsDashboard: React.FC = () => {
       totalOrders: orders.length,
       monthlyOrders: currentMonthOrders.length,
       totalCustomers: customers.length,
-      activeProducts: products.filter(p => p.isActive).length,
+      activeProducts: products.filter((p) => p.isActive).length,
       productSales: productSales.slice(0, 10),
       dailySales,
       ordersByStatus,
       salesChannels,
-      topCustomers
+      topCustomers,
     };
   }, [orders, customers, products]);
 
@@ -163,9 +159,7 @@ const AnalyticsDashboard: React.FC = () => {
           <p className="text-sm font-medium text-gray-600">{title}</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
           {change && (
-            <p className={`text-sm mt-1 font-medium ${changeType === 'positive' ? 'text-green-600' :
-              changeType === 'negative' ? 'text-red-600' : 'text-gray-600'
-              }`}>
+            <p className={`text-sm mt-1 font-medium ${changeType === 'positive' ? 'text-green-600' : changeType === 'negative' ? 'text-red-600' : 'text-gray-600'}`}>
               {change}
             </p>
           )}
@@ -234,16 +228,10 @@ const AnalyticsDashboard: React.FC = () => {
                 }}
                 formatter={(value: number, name: string) => [
                   name === 'revenue' ? `R$ ${value.toFixed(2)}` : value,
-                  name === 'revenue' ? 'Faturamento' : 'Pedidos'
+                  name === 'revenue' ? 'Faturamento' : 'Pedidos',
                 ]}
               />
-              <Area
-                type="monotone"
-                dataKey="revenue"
-                stroke="#f97316"
-                fill="#fed7aa"
-                strokeWidth={2}
-              />
+              <Area type="monotone" dataKey="revenue" stroke="#f97316" fill="#fed7aa" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         </div>

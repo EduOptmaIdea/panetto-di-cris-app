@@ -24,16 +24,17 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, order, isEditing
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     customerId: order?.customerId || '',
+    status: order?.currentStatus || 'pending', // ✅ CORRIGIDO: Usa currentStatus
+    paymentStatus: order?.currentPaymentStatus || 'pending', // ✅ CORRIGIDO: Usa currentPaymentStatus
+    salesChannel: order?.salesChannel || 'direct' as 'direct' | 'whatsapp' | '99food' | 'ifood',
     deliveryMethod: order?.deliveryMethod || 'pickup' as 'pickup' | 'delivery',
     paymentMethod: order?.paymentMethod || 'cash' as 'cash' | 'card' | 'pix' | 'transfer',
-    salesChannel: order?.salesChannel || 'direct' as 'direct' | 'whatsapp' | '99food' | 'ifood',
     deliveryFee: order?.deliveryFee || 0,
     orderDiscount: order?.orderDiscount || 0,
     notes: order?.notes || '',
     estimatedDelivery: order?.estimatedDelivery ? new Date(order.estimatedDelivery).toISOString().split('T')[0] : '',
   });
 
-  // Função auxiliar para obter o ID do produto de forma segura
   const getProductId = (item: any): string | undefined => {
     if (item.productId) return item.productId;
     if (item.product?.id) return item.product.id;
@@ -76,15 +77,12 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, order, isEditing
     try {
       let totalItemsDiscount = 0;
       const items = Object.entries(orderItems).map(([productId, quantity]) => {
-        // Garantir que productId é válido
         if (!productId || productId === 'undefined') {
           throw new Error('ID do produto inválido encontrado');
         }
 
-        // Buscar produto nos produtos atuais
         let product = products.find(p => p.id === productId);
 
-        // Se não encontrar e estiver editando, tentar usar o produto do pedido original
         if (!product && isEditing && order) {
           const originalItem = order.items.find(item => {
             const id = getProductId(item);
@@ -118,6 +116,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, order, isEditing
       const subtotal = items.reduce((sum, item) => sum + item.total, 0);
       const total = subtotal + formData.deliveryFee - formData.orderDiscount;
 
+      // ✅ Objeto de dados para o novo pedido
       const orderData = {
         customerId: formData.customerId,
         items,
@@ -126,8 +125,8 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, order, isEditing
         total,
         orderDiscount: formData.orderDiscount,
         totalItemsDiscount,
-        status: order?.status || 'pending' as const,
-        paymentStatus: order?.paymentStatus || 'pending' as const,
+        currentStatus: formData.status, // ✅ CORRIGIDO: Usa currentStatus
+        currentPaymentStatus: formData.paymentStatus, // ✅ CORRIGIDO: Usa currentPaymentStatus
         paymentMethod: formData.paymentMethod,
         deliveryMethod: formData.deliveryMethod,
         salesChannel: formData.salesChannel,
@@ -138,16 +137,18 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, order, isEditing
       if (isEditing && order) {
         await updateOrder(order.id, orderData);
       } else {
-        await addOrder(orderData);
+        await addOrder(orderData as any);
       }
 
       onClose();
       if (!isEditing) {
         setFormData({
           customerId: '',
+          status: 'pending',
+          paymentStatus: 'pending',
+          salesChannel: 'direct',
           deliveryMethod: 'pickup',
           paymentMethod: 'cash',
-          salesChannel: 'direct',
           deliveryFee: 0,
           orderDiscount: 0,
           notes: '',
@@ -166,10 +167,19 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, order, isEditing
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: name === 'deliveryFee' || name === 'orderDiscount' ? parseFloat(value) || 0 : value,
-    });
+
+    if (name === 'status' && value === 'cancelled') {
+      setFormData({
+        ...formData,
+        [name]: value,
+        paymentStatus: 'cancelled',
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: name === 'deliveryFee' || name === 'orderDiscount' ? parseFloat(value) || 0 : value,
+      });
+    }
   };
 
   const handleitem_discountChange = (productId: string, value: string) => {
@@ -243,7 +253,6 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, order, isEditing
 
   if (!isOpen) return null;
 
-  // IDs dos produtos no pedido (mesmo inativos)
   const productIdsInOrder: string[] = [];
   if (order) {
     order.items.forEach(item => {
@@ -252,7 +261,6 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, order, isEditing
     });
   }
 
-  // Mostrar: produtos ativos + produtos que estão no pedido
   const productsToShow = products.filter(p =>
     p.isActive || productIdsInOrder.includes(p.id)
   );
@@ -396,6 +404,54 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, order, isEditing
               </select>
             </div>
           </div>
+
+          {/* ✅ NOVO: Campos de Status e Canal de Venda */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+              <select
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500"
+              >
+                <option value="pending">Pendente</option>
+                <option value="confirmed">Confirmado</option>
+                <option value="preparing">Preparando</option>
+                <option value="ready">Pronto</option>
+                <option value="delivered">Entregue</option>
+                <option value="cancelled">Cancelado</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Status de Pagamento</label>
+              <select
+                name="paymentStatus"
+                value={formData.paymentStatus}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500"
+              >
+                <option value="pending">Pendente</option>
+                <option value="paid">Pago</option>
+                <option value="cancelled">Cancelado</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Canal de Venda</label>
+              <select
+                name="salesChannel"
+                value={formData.salesChannel}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500"
+              >
+                <option value="direct">Direto</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="99food">99Food</option>
+                <option value="ifood">iFood</option>
+              </select>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium text-gray-700 mb-2 block">

@@ -56,16 +56,16 @@ const Dashboard: React.FC = () => {
 
     // Faturamento total
     const totalRevenue = orders
-      .filter((order) => order.paymentStatus === 'paid')
+      .filter((order) => order.currentPaymentStatus === 'paid')
       .reduce((sum, order) => sum + order.total, 0);
 
     // Faturamento do mês
     const monthlyRevenue = currentMonthOrders
-      .filter((order) => order.paymentStatus === 'paid')
+      .filter((order) => order.currentPaymentStatus === 'paid')
       .reduce((sum, order) => sum + order.total, 0);
 
     // Ticket médio
-    const paidOrders = orders.filter((order) => order.paymentStatus === 'paid');
+    const paidOrders = orders.filter((order) => order.currentPaymentStatus === 'paid');
     const averageTicket = paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0;
 
     // Produtos mais vendidos
@@ -102,7 +102,7 @@ const Dashboard: React.FC = () => {
       });
 
       const dayRevenue = dayOrders
-        .filter((order) => order.paymentStatus === 'paid')
+        .filter((order) => order.currentPaymentStatus === 'paid')
         .reduce((sum, order) => sum + order.total, 0);
 
       return {
@@ -115,12 +115,12 @@ const Dashboard: React.FC = () => {
 
     // Status dos pedidos
     const ordersByStatus = [
-      { name: 'Pendente', value: orders.filter((o) => o.status === 'pending').length, color: '#f59e0b' },
-      { name: 'Confirmado', value: orders.filter((o) => o.status === 'confirmed').length, color: '#3b82f6' },
-      { name: 'Preparando', value: orders.filter((o) => o.status === 'preparing').length, color: '#f97316' },
-      { name: 'Pronto', value: orders.filter((o) => o.status === 'ready').length, color: '#10b981' },
-      { name: 'Entregue', value: orders.filter((o) => o.status === 'delivered').length, color: '#6b7280' },
-      { name: 'Cancelado', value: orders.filter((o) => o.status === 'cancelled').length, color: '#ef4444' },
+      { name: 'Pendente', value: orders.filter((o) => o.currentStatus === 'pending').length, color: '#f59e0b' },
+      { name: 'Confirmado', value: orders.filter((o) => o.currentStatus === 'confirmed').length, color: '#3b82f6' },
+      { name: 'Preparando', value: orders.filter((o) => o.currentStatus === 'preparing').length, color: '#f97316' },
+      { name: 'Pronto', value: orders.filter((o) => o.currentStatus === 'ready').length, color: '#10b981' },
+      { name: 'Entregue', value: orders.filter((o) => o.currentStatus === 'delivered').length, color: '#6b7280' },
+      { name: 'Cancelado', value: orders.filter((o) => o.currentStatus === 'cancelled').length, color: '#ef4444' },
     ].filter((item) => item.value > 0);
 
     // Canais de venda

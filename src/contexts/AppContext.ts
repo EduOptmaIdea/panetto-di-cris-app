@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { Customer, Product, Order, OrderItem, ProductCategory } from '../types';
+import type { Customer, Product, Order, OrderItem, ProductCategory, OrderStatus, PaymentStatus } from '../types';
 
 interface AppContextType {
   // Data
@@ -10,7 +10,7 @@ interface AppContextType {
   loading: boolean;
   error: string | null;
   mostSoldCategory: ProductCategory | null;
-  
+
   // CRUD operations
   addCustomer: (customer: Omit<Customer, 'id' | 'createdAt' | 'isGiftEligible' | 'totalOrders' | 'totalSpent' | 'completedOrders' | 'cancelledOrders' | 'pendingOrders' | 'paidSpent' | 'pendingSpent'>) => Promise<void>;
   updateCustomer: (id: string, customer: Partial<Customer>) => Promise<void>;
@@ -21,13 +21,15 @@ interface AppContextType {
   updateCategory: (id: string, updates: Partial<ProductCategory>) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
   addOrder: (
-    order: Omit<Order, 'id' | 'orderDate' | 'customer' | 'order_number'> & {
+    order: Omit<Order, 'id' | 'orderDate' | 'customer' | 'number'> & {
       items: OrderItem[];
-      order_number?: number;
+      currentStatus: OrderStatus;
+      currentPaymentStatus: PaymentStatus;
     }
   ) => Promise<void>;
-  updateOrder: (id: string, order: Partial<Order>) => Promise<void>;
-  deleteOrder: (id: string) => Promise<void>; // <-- ADICIONADO
+  // ✅ CORREÇÃO: A tipagem agora inclui a propriedade 'items' para permitir a atualização dos itens
+  updateOrder: (id: string, order: Partial<Order> & { items?: OrderItem[], currentStatus?: OrderStatus; currentPaymentStatus?: PaymentStatus; }) => Promise<void>;
+  deleteOrder: (id: string) => Promise<void>;
   deleteCustomer: (id: string) => Promise<void>;
   refetch: () => Promise<void>;
 }

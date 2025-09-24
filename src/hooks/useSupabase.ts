@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useNotifications } from '../hooks/useNotifications';
-import type { Customer, Product, ProductCategory, Order, OrderItem, PriceHistory } from '../types';
+import type { Customer, Product, ProductCategory, Order, OrderItem, PriceHistory, OrderStatus, PaymentStatus } from '../types';
 
 type SupabaseProductRow = {
   id: string;
@@ -47,7 +47,7 @@ export const useSupabaseData = () => {
       if (categoriesError) throw categoriesError;
       if (productsError) throw productsError;
       if (customersError) throw customersError;
-      
+
       const productCounts = new Map<string, number>();
       if (productsData) {
         productsData.forEach(p => {
@@ -63,9 +63,9 @@ export const useSupabaseData = () => {
         productCount: productCounts.get(c.id) || 0,
       }));
 
-      const sortedProductsBySales = [...productsData].sort((a,b) => b.total_sold - a.total_sold);
+      const sortedProductsBySales = [...productsData].sort((a, b) => b.total_sold - a.total_sold);
       const mostSoldProduct = sortedProductsBySales.length > 0 ? sortedProductsBySales[0] : null;
-      
+
       let mostSoldCat = null;
       if (mostSoldProduct) {
         mostSoldCat = formattedCategories.find(c => c.id === mostSoldProduct.category_id) || null;
@@ -108,21 +108,44 @@ export const useSupabaseData = () => {
 
       const { data: ordersData, error: ordersError } = await supabase.from('orders').select('*, customer:customer_id(*), items:order_items(*, product:product_id(*))').order('created_at', { ascending: false });
       if (ordersError) throw ordersError;
-      
+
       const formattedOrders = ordersData.map(o => ({
         ...o,
-        orderNumber: o.number,
+        number: o.number,
         orderDate: o.created_at ? new Date(o.created_at) : null,
         customerId: o.customer_id,
         deliveryFee: o.delivery_fee,
-        paymentStatus: o.payment_status,
+        currentStatus: o.current_status,
+        currentPaymentStatus: o.current_payment_status,
         paymentMethod: o.payment_method,
         deliveryMethod: o.delivery_method,
         estimatedDelivery: o.estimated_delivery ? new Date(o.estimated_delivery) : null,
         completedAt: o.completed_at ? new Date(o.completed_at) : null,
-        items: o.items,
+        customer: o.customer,
+        items: o.items.map((item: any) => ({
+          productId: item.product_id,
+          product: {
+            id: item.product.id,
+            name: item.product.name,
+            description: item.product.description,
+            category: item.product.category_id,
+            price: item.product.price,
+            priceHistory: item.product.price_history || [],
+            image: item.product.image_url,
+            weight: item.product.weight,
+            isActive: item.product.is_active,
+            createdAt: new Date(item.product.created_at),
+            totalSold: item.product.total_sold,
+          },
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total: item.total,
+          item_discount: item.item_discount,
+          final_unit_price: item.final_unit_price,
+        })),
         orderDiscount: o.order_discount,
         totalItemsDiscount: o.total_items_discount,
+        salesChannel: o.sales_channel,
       }));
 
       setProducts(formattedProducts);
@@ -138,9 +161,10 @@ export const useSupabaseData = () => {
   }, [user]);
 
   const updateCustomerTotals = useCallback(async (customerId: string) => {
+    // ... (código existente sem alterações)
     const { data: customerOrders, error: ordersError } = await supabase
       .from('orders')
-      .select('status, total, payment_status')
+      .select('current_status, total, current_payment_status')
       .eq('customer_id', customerId);
 
     if (ordersError) {
@@ -148,12 +172,12 @@ export const useSupabaseData = () => {
       return;
     }
 
-    const completedOrders = customerOrders.filter(order => order.status === 'delivered').length;
-    const cancelledOrders = customerOrders.filter(order => order.status === 'cancelled').length;
-    const pendingOrders = customerOrders.filter(order => order.status !== 'delivered' && order.status !== 'cancelled').length;
+    const completedOrders = customerOrders.filter(order => order.current_status === 'delivered').length;
+    const cancelledOrders = customerOrders.filter(order => order.current_status === 'cancelled').length;
+    const pendingOrders = customerOrders.filter(order => order.current_status !== 'delivered' && order.current_status !== 'cancelled').length;
 
-    const paidSpent = customerOrders.filter(order => order.payment_status === 'paid').reduce((sum, order) => sum + order.total, 0);
-    const pendingSpent = customerOrders.filter(order => order.payment_status === 'pending').reduce((sum, order) => sum + order.total, 0);
+    const paidSpent = customerOrders.filter(order => order.current_payment_status === 'paid').reduce((sum, order) => sum + order.total, 0);
+    const pendingSpent = customerOrders.filter(order => order.current_payment_status === 'pending').reduce((sum, order) => sum + order.total, 0);
 
     const { error: updateError } = await supabase
       .from('customers')
@@ -172,6 +196,7 @@ export const useSupabaseData = () => {
   }, []);
 
   const addCategory = useCallback(async (category: Pick<ProductCategory, 'name' | 'description' | 'isActive'>) => {
+    // ... (código existente sem alterações)
     try {
       const { error } = await supabase.from('product_categories').insert({
         name: category.name,
@@ -187,6 +212,7 @@ export const useSupabaseData = () => {
   }, [fetchData]);
 
   const updateCategory = useCallback(async (id: string, updates: Partial<ProductCategory>) => {
+    // ... (código existente sem alterações)
     try {
       const { error } = await supabase
         .from('product_categories')
@@ -206,6 +232,7 @@ export const useSupabaseData = () => {
   }, [fetchData]);
 
   const deleteCategory = useCallback(async (id: string) => {
+    // ... (código existente sem alterações)
     try {
       const { count, error: countError } = await supabase
         .from('products')
@@ -242,6 +269,7 @@ export const useSupabaseData = () => {
   }, [fetchData, addNotification]);
 
   const addProduct = useCallback(async (product: Omit<Product, 'id' | 'createdAt' | 'totalSold' | 'priceHistory' | 'customPackaging'>) => {
+    // ... (código existente sem alterações)
     try {
       const { error } = await supabase
         .from('products')
@@ -264,6 +292,7 @@ export const useSupabaseData = () => {
   }, [fetchData]);
 
   const updateProduct = useCallback(async (id: string, product: Partial<Product>) => {
+    // ... (código existente sem alterações)
     try {
       const { error } = await supabase
         .from('products')
@@ -287,8 +316,9 @@ export const useSupabaseData = () => {
   }, [fetchData]);
 
   const deleteProduct = useCallback(async (id: string) => {
+    // ... (código existente sem alterações)
     try {
-      const hasOrders = orders.some(order => 
+      const hasOrders = orders.some(order =>
         order.items.some(item => item.productId === id)
       );
 
@@ -320,6 +350,7 @@ export const useSupabaseData = () => {
   }, [fetchData, orders, addNotification]);
 
   const addCustomer = useCallback(async (customer: Omit<Customer, 'id' | 'createdAt' | 'isGiftEligible' | 'totalOrders' | 'totalSpent' | 'completedOrders' | 'cancelledOrders' | 'pendingOrders' | 'paidSpent' | 'pendingSpent'>) => {
+    // ... (código existente sem alterações)
     try {
       const { error } = await supabase
         .from('customers')
@@ -340,6 +371,7 @@ export const useSupabaseData = () => {
   }, [fetchData]);
 
   const updateCustomer = useCallback(async (id: string, customer: Partial<Customer>) => {
+    // ... (código existente sem alterações)
     try {
       const { error } = await supabase
         .from('customers')
@@ -359,8 +391,9 @@ export const useSupabaseData = () => {
       throw err;
     }
   }, [fetchData]);
-  
+
   const deleteCustomer = useCallback(async (id: string) => {
+    // ... (código existente sem alterações)
     try {
       const hasOrders = orders.some(order => order.customerId === id);
       if (hasOrders) {
@@ -371,7 +404,7 @@ export const useSupabaseData = () => {
         });
         return;
       }
-      
+
       const { error } = await supabase.from('customers').delete().eq('id', id);
       if (error) throw error;
       await fetchData();
@@ -390,24 +423,24 @@ export const useSupabaseData = () => {
     }
   }, [fetchData, orders, addNotification]);
 
-  const addOrder = useCallback(async (order: Omit<Order, 'id' | 'orderDate' | 'customer' | 'order_number'> & { items: OrderItem[]; order_number?: number }) => {
+  const addOrder = useCallback(async (order: Omit<Order, 'id' | 'orderDate' | 'customer' | 'number'> & { items: OrderItem[]; currentStatus: OrderStatus; currentPaymentStatus: PaymentStatus; }) => {
+    if (!user) throw new Error("User not authenticated");
     try {
-      // 1. Obter e incrementar o número do pedido
       const { data: counter } = await supabase
         .from('counters')
         .select('last_number')
         .eq('name', 'order_number')
         .maybeSingle();
-      
+
       let newOrderNumber = (counter?.last_number || 0) + 1;
-      
-      // 2. Inserir o novo pedido
+
       const { data: newOrderData, error: orderError } = await supabase
         .from('orders')
         .insert({
+          // ✅ CORREÇÃO: A linha que tentava inserir um 'user_id' inexistente foi removida.
           customer_id: order.customerId,
-          status: order.status,
-          payment_status: order.paymentStatus,
+          current_status: order.currentStatus,
+          current_payment_status: order.currentPaymentStatus,
           payment_method: order.paymentMethod,
           delivery_method: order.deliveryMethod,
           subtotal: order.subtotal,
@@ -425,14 +458,12 @@ export const useSupabaseData = () => {
         .single();
 
       if (orderError) throw orderError;
-      
-      // 3. Atualizar ou inserir o contador
+
       const { error: counterUpdateError } = await supabase
         .from('counters')
         .upsert({ name: 'order_number', last_number: newOrderNumber }, { onConflict: 'name' });
       if (counterUpdateError) throw counterUpdateError;
 
-      // 4. Inserir os itens do pedido
       const orderItemsToInsert = order.items.map(item => ({
         order_id: newOrderData.id,
         product_id: item.productId,
@@ -446,30 +477,33 @@ export const useSupabaseData = () => {
       const { error: itemsError } = await supabase.from('order_items').insert(orderItemsToInsert);
       if (itemsError) throw itemsError;
 
-      // 5. Atualizar os totais do cliente
       await updateCustomerTotals(order.customerId);
-      
       await fetchData();
+      addNotification({
+        title: 'Pedido Criado',
+        message: 'O novo pedido foi criado com sucesso!',
+        type: 'success',
+      });
     } catch (err) {
-      console.error('Error adding order:', err);
+      const error = err as { message: string };
+      console.error('Error adding order:', error.message);
       addNotification({
         title: 'Erro ao criar pedido',
-        message: 'Não foi possível criar o pedido. Tente novamente.',
+        message: `Não foi possível criar o pedido: ${error.message}. Verifique o console para mais detalhes.`,
         type: 'error',
       });
       throw err;
     }
-  }, [fetchData, updateCustomerTotals, addNotification]);
+  }, [fetchData, updateCustomerTotals, addNotification, user]);
 
-  const updateOrder = useCallback(async (id: string, orderData: Partial<Order>) => {
+  const updateOrder = useCallback(async (id: string, orderData: Partial<Order> & { items?: OrderItem[]; currentStatus?: OrderStatus; currentPaymentStatus?: PaymentStatus; }) => {
     try {
-      // 1. Atualizar o pedido principal
       const { error: orderUpdateError } = await supabase
         .from('orders')
         .update({
           customer_id: orderData.customerId,
-          status: orderData.status,
-          payment_status: orderData.paymentStatus,
+          current_status: orderData.currentStatus,
+          current_payment_status: orderData.currentPaymentStatus,
           payment_method: orderData.paymentMethod,
           delivery_method: orderData.deliveryMethod,
           subtotal: orderData.subtotal,
@@ -485,10 +519,8 @@ export const useSupabaseData = () => {
         .eq('id', id);
 
       if (orderUpdateError) throw orderUpdateError;
-
-      // 2. Se houver itens, atualizar order_items
-      if (orderData.items && Array.isArray(orderData.items)) {
-        // 2a. Deletar todos os itens antigos
+      
+      if (orderData.items) {
         const { error: deleteError } = await supabase
           .from('order_items')
           .delete()
@@ -496,7 +528,6 @@ export const useSupabaseData = () => {
 
         if (deleteError) throw deleteError;
 
-        // 2b. Inserir novos itens
         const orderItemsToInsert = orderData.items.map(item => ({
           order_id: id,
           product_id: item.productId,
@@ -506,15 +537,13 @@ export const useSupabaseData = () => {
           item_discount: item.item_discount,
           final_unit_price: item.final_unit_price,
         }));
-
-        const { error: insertError } = await supabase
-          .from('order_items')
-          .insert(orderItemsToInsert);
-
-        if (insertError) throw insertError;
+        
+        if (orderItemsToInsert.length > 0) {
+            const { error: itemsError } = await supabase.from('order_items').insert(orderItemsToInsert);
+            if (itemsError) throw itemsError;
+        }
       }
 
-      // 3. Atualizar os totais do cliente
       const customerId = orderData.customerId || (await supabase
         .from('orders')
         .select('customer_id')
@@ -525,37 +554,39 @@ export const useSupabaseData = () => {
       if (customerId) {
         await updateCustomerTotals(customerId);
       }
-
-      // 4. Recarregar todos os dados
+      
       await fetchData();
+      addNotification({
+        title: 'Pedido Atualizado',
+        message: 'O pedido foi atualizado com sucesso!',
+        type: 'success',
+      });
     } catch (err) {
-      console.error('Error updating order:', err);
+      const error = err as { message: string };
+      console.error('Error updating order:', error.message);
       addNotification({
         title: 'Erro ao atualizar pedido',
-        message: 'Não foi possível atualizar o pedido. Tente novamente.',
+        message: `Não foi possível atualizar o pedido: ${error.message}. Verifique o console para mais detalhes.`,
         type: 'error',
       });
       throw err;
     }
   }, [fetchData, updateCustomerTotals, addNotification]);
 
-  // ✅ FUNÇÃO DE EXCLUSÃO DE PEDIDO — CORRIGIDA E TESTADA
   const deleteOrder = useCallback(async (id: string) => {
+    // ... (código existente sem alterações)
     try {
-      // 1. Buscar customer_id (para atualizar totais depois)
       const { data: order } = await supabase
         .from('orders')
         .select('customer_id')
         .eq('id', id)
         .single();
 
-      // 2. Excluir todos os itens do pedido (seguro: não falha se não houver itens)
       await supabase
         .from('order_items')
         .delete()
         .eq('order_id', id);
 
-      // 3. Excluir o pedido principal
       const { error: deleteError } = await supabase
         .from('orders')
         .delete()
@@ -563,15 +594,12 @@ export const useSupabaseData = () => {
 
       if (deleteError) throw deleteError;
 
-      // 4. Atualizar totais do cliente
       if (order?.customer_id) {
         await updateCustomerTotals(order.customer_id);
       }
 
-      // 5. Recarregar dados
       await fetchData();
 
-      // 6. Notificação
       addNotification({
         title: 'Pedido excluído',
         message: 'Pedido excluído com sucesso.',
@@ -592,40 +620,17 @@ export const useSupabaseData = () => {
     if (user) {
       fetchData();
 
-      const productChannel = supabase
-        .channel('products_changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
+      const subscription = supabase
+        .channel('public-changes')
+        .on('postgres_changes', { event: '*', schema: 'public' }, () => {
           fetchData();
         })
         .subscribe();
       
-      const categoriesChannel = supabase
-        .channel('categories_changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'product_categories' }, () => {
-          fetchData();
-        })
-        .subscribe();
-
-      const customersChannel = supabase
-        .channel('customers_changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => {
-          fetchData();
-        })
-        .subscribe();
-        
-      const ordersChannel = supabase
-        .channel('orders_changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-          fetchData();
-        })
-        .subscribe();
-
       return () => {
-        supabase.removeChannel(productChannel);
-        supabase.removeChannel(categoriesChannel);
-        supabase.removeChannel(customersChannel);
-        supabase.removeChannel(ordersChannel);
+        supabase.removeChannel(subscription);
       };
+
     } else {
       setCustomers([]);
       setProducts([]);
@@ -653,8 +658,9 @@ export const useSupabaseData = () => {
     deleteCategory,
     addOrder,
     updateOrder,
-    deleteOrder, // ✅ EXPORTADO
+    deleteOrder,
     deleteCustomer,
     refetch: fetchData,
   };
 };
+

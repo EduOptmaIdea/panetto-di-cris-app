@@ -12,6 +12,7 @@ import {
   DollarSign,
   Truck,
   User,
+  Trash2, // <-- ÍCONE ADICIONADO
 } from 'lucide-react';
 import type { Order } from '../../types';
 
@@ -20,7 +21,7 @@ const formatOrderNumber = (number: number): string => {
 };
 
 const OrdersList: React.FC = () => {
-  const { orders } = useApp();
+  const { orders, deleteOrder } = useApp(); // <-- deleteOrder adicionado
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showForm, setShowForm] = useState(false);
@@ -104,7 +105,7 @@ const OrdersList: React.FC = () => {
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Pedidos</h1>
-          <p className="text-gray-600">Gerencie todos os pedidos da sua paneteria</p>
+          <p className="text-gray-600">Gerencie todos os pedidos da sua panificadora</p>
         </div>
 
         <button
@@ -237,6 +238,19 @@ const OrdersList: React.FC = () => {
                     >
                       <Edit className="w-4 h-4" />
                       <span>Editar</span>
+                    </button>
+
+                    {/* ✅ BOTÃO DE EXCLUSÃO */}
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Excluir pedido #${formatOrderNumber(order.number ?? 0)}? Esta ação é irreversível.`)) {
+                          deleteOrder(order.id);
+                        }
+                      }}
+                      className="flex items-center space-x-1 px-3 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>Excluir</span>
                     </button>
                   </div>
                 </div>

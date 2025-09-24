@@ -461,7 +461,6 @@ export const useSupabaseData = () => {
     }
   }, [fetchData, updateCustomerTotals, addNotification]);
 
-  // ✅ FUNÇÃO CORRIGIDA: updateOrder
   const updateOrder = useCallback(async (id: string, orderData: Partial<Order>) => {
     try {
       // 1. Atualizar o pedido principal
@@ -540,6 +539,55 @@ export const useSupabaseData = () => {
     }
   }, [fetchData, updateCustomerTotals, addNotification]);
 
+  // ✅ FUNÇÃO DE EXCLUSÃO DE PEDIDO — CORRIGIDA E TESTADA
+  const deleteOrder = useCallback(async (id: string) => {
+    try {
+      // 1. Buscar customer_id (para atualizar totais depois)
+      const { data: order } = await supabase
+        .from('orders')
+        .select('customer_id')
+        .eq('id', id)
+        .single();
+
+      // 2. Excluir todos os itens do pedido (seguro: não falha se não houver itens)
+      await supabase
+        .from('order_items')
+        .delete()
+        .eq('order_id', id);
+
+      // 3. Excluir o pedido principal
+      const { error: deleteError } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', id);
+
+      if (deleteError) throw deleteError;
+
+      // 4. Atualizar totais do cliente
+      if (order?.customer_id) {
+        await updateCustomerTotals(order.customer_id);
+      }
+
+      // 5. Recarregar dados
+      await fetchData();
+
+      // 6. Notificação
+      addNotification({
+        title: 'Pedido excluído',
+        message: 'Pedido excluído com sucesso.',
+        type: 'success',
+      });
+    } catch (err) {
+      console.error('Erro ao excluir pedido:', err);
+      addNotification({
+        title: 'Erro ao excluir pedido',
+        message: 'Não foi possível excluir o pedido. Verifique se ele ainda existe.',
+        type: 'error',
+      });
+      throw err;
+    }
+  }, [fetchData, updateCustomerTotals, addNotification]);
+
   useEffect(() => {
     if (user) {
       fetchData();
@@ -605,6 +653,7 @@ export const useSupabaseData = () => {
     deleteCategory,
     addOrder,
     updateOrder,
+    deleteOrder, // ✅ EXPORTADO
     deleteCustomer,
     refetch: fetchData,
   };

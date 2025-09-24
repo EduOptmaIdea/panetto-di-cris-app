@@ -27,6 +27,7 @@ interface AppContextType {
     }
   ) => Promise<void>;
   updateOrder: (id: string, order: Partial<Order>) => Promise<void>;
+  deleteOrder: (id: string) => Promise<void>; // <-- ADICIONADO
   deleteCustomer: (id: string) => Promise<void>;
   refetch: () => Promise<void>;
 }

@@ -3,54 +3,10 @@ import { useSupabaseData } from '../hooks/useSupabase';
 import { AppContext } from './AppContext';
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const {
-    customers,
-    products,
-    categories,
-    orders,
-    loading,
-    error,
-    addCustomer,
-    updateCustomer,
-    deleteCustomer,
-    addProduct,
-    updateProduct,
-    deleteProduct,
-    addCategory,
-    updateCategory,
-    deleteCategory,
-    addOrder,
-    updateOrder,
-    deleteOrder, // ✅ Adicionado aqui
-    mostSoldCategory,
-    refetch,
-  } = useSupabaseData();
+  const supabaseData = useSupabaseData();
 
   return (
-    <AppContext.Provider
-      value={{
-        customers,
-        products,
-        categories,
-        orders,
-        loading,
-        error,
-        addCustomer,
-        updateCustomer,
-        deleteCustomer,
-        addProduct,
-        updateProduct,
-        deleteProduct,
-        addCategory,
-        updateCategory,
-        deleteCategory,
-        addOrder,
-        updateOrder,
-        deleteOrder, // ✅ E aqui
-        mostSoldCategory,
-        refetch,
-      }}
-    >
+    <AppContext.Provider value={supabaseData}>
       {children}
     </AppContext.Provider>
   );

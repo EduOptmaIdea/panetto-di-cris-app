@@ -27,4 +27,5 @@ triggers_supabase
 *.sw?
 .env
 triggers_supabase
+*.old
 

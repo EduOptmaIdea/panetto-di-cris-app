@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../contexts/AppContext';
-import { X, User, ShoppingCart, Plus, Minus, Truck, CreditCard } from 'lucide-react';
-import type { Order } from '../../types';
+import { X, User, ShoppingCart, Plus, Minus, Truck, CreditCard, Calendar, Clock, CheckCircle, Package } from 'lucide-react';
+import type { Order, OrderStatus, PaymentStatus } from '../../types';
+import { format, parseISO } from 'date-fns';
 
 interface OrderFormProps {
   isOpen: boolean;
@@ -19,119 +20,105 @@ const formatCurrency = (value: number | string): string => {
   }).format(numericValue);
 };
 
+const formatDateForInput = (date: Date | string | null | undefined, includeTime = false): string => {
+  if (!date) return '';
+  try {
+    const dateObj = typeof date === 'string' ? parseISO(date) : date;
+    if (includeTime) {
+      return format(dateObj, "yyyy-MM-dd'T'HH:mm");
+    }
+    return format(dateObj, 'yyyy-MM-dd');
+  } catch {
+    return '';
+  }
+};
+
 const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, order, isEditing }) => {
   const { addOrder, updateOrder, customers, products } = useApp();
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
+
+  const getInitialFormData = (order?: Order) => ({
     customerId: order?.customerId || '',
-    status: order?.currentStatus || 'pending', // ✅ CORRIGIDO: Usa currentStatus
-    paymentStatus: order?.currentPaymentStatus || 'pending', // ✅ CORRIGIDO: Usa currentPaymentStatus
-    salesChannel: order?.salesChannel || 'direct' as 'direct' | 'whatsapp' | '99food' | 'ifood',
-    deliveryMethod: order?.deliveryMethod || 'pickup' as 'pickup' | 'delivery',
-    paymentMethod: order?.paymentMethod || 'cash' as 'cash' | 'card' | 'pix' | 'transfer',
+    status: order?.currentStatus || 'pending',
+    paymentStatus: order?.currentPaymentStatus || 'pending',
+    salesChannel: order?.salesChannel || 'direct',
+    deliveryMethod: order?.deliveryMethod || 'pickup',
+    paymentMethod: order?.paymentMethod || 'cash',
     deliveryFee: order?.deliveryFee || 0,
     orderDiscount: order?.orderDiscount || 0,
     notes: order?.notes || '',
-    estimatedDelivery: order?.estimatedDelivery ? new Date(order.estimatedDelivery).toISOString().split('T')[0] : '',
+    orderDate: formatDateForInput(order?.orderDate, true) || formatDateForInput(new Date(), true),
+    estimatedDelivery: formatDateForInput(order?.estimatedDelivery, true),
+    completedAt: formatDateForInput(order?.completedAt, true),
+    paymentDate: formatDateForInput(order?.paymentDate, true),
   });
 
-  const getProductId = (item: any): string | undefined => {
-    if (item.productId) return item.productId;
-    if (item.product?.id) return item.product.id;
-    return undefined;
-  };
+  const [formData, setFormData] = useState(getInitialFormData(order));
 
-  const [orderItems, setOrderItems] = useState(() => {
-    if (order) {
-      return order.items.reduce((acc, item) => {
-        const productId = getProductId(item);
-        if (productId) {
-          acc[productId] = item.quantity;
-        }
+  const getProductId = (item: any): string => item.productId || item.product?.id;
+
+  const [orderItems, setOrderItems] = useState<{ [key: string]: number }>({});
+  const [itemDiscounts, setItemDiscounts] = useState<{ [key: string]: number }>({});
+
+  useEffect(() => {
+    if (isOpen) {
+      setFormData(getInitialFormData(order));
+      const initialItems = order?.items.reduce((acc, item) => {
+        acc[getProductId(item)] = item.quantity;
         return acc;
-      }, {} as { [key: string]: number });
-    }
-    return {};
-  });
+      }, {} as { [key: string]: number }) || {};
+      setOrderItems(initialItems);
 
-  const [item_discounts, setitem_discounts] = useState(() => {
-    if (order) {
-      return order.items.reduce((acc, item) => {
-        const productId = getProductId(item);
-        if (productId) {
-          acc[productId] = item.item_discount || 0;
-        }
+      const initialDiscounts = order?.items.reduce((acc, item) => {
+        acc[getProductId(item)] = item.item_discount || 0;
         return acc;
-      }, {} as { [key: string]: number });
+      }, {} as { [key: string]: number }) || {};
+      setItemDiscounts(initialDiscounts);
     }
-    return {};
-  });
+  }, [order, isOpen]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (Object.keys(orderItems).length === 0) {
-      alert('Adicione pelo menos um produto ao pedido');
+      alert('Adicione pelo menos um produto ao pedido.');
       return;
     }
     setLoading(true);
     try {
-      let totalItemsDiscount = 0;
       const items = Object.entries(orderItems).map(([productId, quantity]) => {
-        if (!productId || productId === 'undefined') {
-          throw new Error('ID do produto inválido encontrado');
-        }
+        const product = products.find(p => p.id === productId);
+        if (!product) throw new Error(`Produto com ID ${productId} não encontrado.`);
 
-        let product = products.find(p => p.id === productId);
+        const discount = itemDiscounts[productId] || 0;
+        const finalUnitPrice = product.price - discount;
+        const total = finalUnitPrice * quantity;
 
-        if (!product && isEditing && order) {
-          const originalItem = order.items.find(item => {
-            const id = getProductId(item);
-            return id === productId;
-          });
-          if (originalItem && originalItem.product) {
-            product = originalItem.product;
-          }
-        }
-
-        if (!product) {
-          throw new Error(`Produto com ID ${productId} não encontrado`);
-        }
-
-        const discount = item_discounts[productId] || 0;
-        const final_unit_price = product.price - discount;
-        const total = final_unit_price * quantity;
-        totalItemsDiscount += discount * quantity;
-
-        return {
-          productId,
-          product,
-          quantity,
-          unit_price: product.price,
-          total,
-          item_discount: discount,
-          final_unit_price,
-        };
+        return { productId, product, quantity, unit_price: product.price, total, item_discount: discount, final_unit_price: finalUnitPrice };
       });
 
-      const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-      const total = subtotal + formData.deliveryFee - formData.orderDiscount;
+      const subtotal = items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+      const totalItemsDiscount = items.reduce((sum, item) => sum + (item.item_discount! * item.quantity), 0);
+      const total = subtotal - totalItemsDiscount + Number(formData.deliveryFee) - Number(formData.orderDiscount);
 
-      // ✅ Objeto de dados para o novo pedido
       const orderData = {
         customerId: formData.customerId,
         items,
         subtotal,
-        deliveryFee: formData.deliveryFee,
+        deliveryFee: Number(formData.deliveryFee),
         total,
-        orderDiscount: formData.orderDiscount,
+        orderDiscount: Number(formData.orderDiscount),
         totalItemsDiscount,
-        currentStatus: formData.status, // ✅ CORRIGIDO: Usa currentStatus
-        currentPaymentStatus: formData.paymentStatus, // ✅ CORRIGIDO: Usa currentPaymentStatus
-        paymentMethod: formData.paymentMethod,
-        deliveryMethod: formData.deliveryMethod,
-        salesChannel: formData.salesChannel,
-        estimatedDelivery: formData.estimatedDelivery ? new Date(formData.estimatedDelivery) : undefined,
+        currentStatus: formData.status as OrderStatus,
+        currentPaymentStatus: formData.paymentStatus as PaymentStatus,
+        paymentMethod: formData.paymentMethod as any,
+        deliveryMethod: formData.deliveryMethod as any,
+        salesChannel: formData.salesChannel as any,
         notes: formData.notes,
+        orderDate: formData.orderDate ? new Date(formData.orderDate) : new Date(),
+        estimatedDelivery: formData.estimatedDelivery ? new Date(formData.estimatedDelivery) : null,
+        completedAt: formData.completedAt ? new Date(formData.completedAt) : null,
+        paymentDate: formData.paymentDate ? new Date(formData.paymentDate) : null,
       };
 
       if (isEditing && order) {
@@ -139,27 +126,10 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, order, isEditing
       } else {
         await addOrder(orderData as any);
       }
-
       onClose();
-      if (!isEditing) {
-        setFormData({
-          customerId: '',
-          status: 'pending',
-          paymentStatus: 'pending',
-          salesChannel: 'direct',
-          deliveryMethod: 'pickup',
-          paymentMethod: 'cash',
-          deliveryFee: 0,
-          orderDiscount: 0,
-          notes: '',
-          estimatedDelivery: '',
-        });
-        setOrderItems({});
-        setitem_discounts({});
-      }
     } catch (error) {
       console.error('Erro ao salvar pedido:', error);
-      alert('Erro ao salvar pedido. Verifique se todos os produtos ainda existem.');
+      alert(`Erro ao salvar pedido: ${(error as Error).message}`);
     } finally {
       setLoading(false);
     }
@@ -167,380 +137,218 @@ const OrderForm: React.FC<OrderFormProps> = ({ isOpen, onClose, order, isEditing
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-
-    if (name === 'status' && value === 'cancelled') {
-      setFormData({
-        ...formData,
-        [name]: value,
-        paymentStatus: 'cancelled',
-      });
-    } else {
-      setFormData({
-        ...formData,
-        [name]: name === 'deliveryFee' || name === 'orderDiscount' ? parseFloat(value) || 0 : value,
-      });
-    }
+    setFormData(prev => {
+      const newState = { ...prev, [name]: value };
+      if (name === 'status' && value === 'delivered' && !newState.completedAt) {
+        newState.completedAt = formatDateForInput(new Date(), true);
+      }
+      if (name === 'paymentStatus' && value === 'paid' && !newState.paymentDate) {
+        newState.paymentDate = formatDateForInput(new Date(), true);
+      }
+      if (name === 'status' && value === 'cancelled') {
+        newState.paymentStatus = 'cancelled';
+      }
+      return newState;
+    });
   };
 
-  const handleitem_discountChange = (productId: string, value: string) => {
-    setitem_discounts(prev => ({
-      ...prev,
-      [productId]: parseFloat(value) || 0,
-    }));
+  const handleItemDiscountChange = (productId: string, value: string) => {
+    setItemDiscounts(prev => ({ ...prev, [productId]: parseFloat(value) || 0 }));
   };
 
   const handleAddProduct = (productId: string) => {
-    setOrderItems(prev => ({
-      ...prev,
-      [productId]: (prev[productId] || 0) + 1,
-    }));
+    setOrderItems(prev => ({ ...prev, [productId]: (prev[productId] || 0) + 1 }));
   };
 
   const handleRemoveProduct = (productId: string) => {
     setOrderItems(prev => {
       const newItems = { ...prev };
-      if (newItems[productId] > 1) {
-        newItems[productId]--;
-      } else {
+      if (newItems[productId] > 1) newItems[productId]--;
+      else {
         delete newItems[productId];
-        const newDiscounts = { ...item_discounts };
+        const newDiscounts = { ...itemDiscounts };
         delete newDiscounts[productId];
-        setitem_discounts(newDiscounts);
+        setItemDiscounts(newDiscounts);
       }
       return newItems;
     });
   };
 
-  const getGrossTotal = () => {
-    return Object.entries(orderItems).reduce((sum, [productId, quantity]) => {
-      if (!productId) return sum;
-      let product = products.find(p => p.id === productId);
-      if (!product && order) {
-        const originalItem = order.items.find(item => getProductId(item) === productId);
-        product = originalItem?.product;
-      }
-      return sum + (product?.price || 0) * quantity;
-    }, 0);
-  };
-
-  const getTotalItemsDiscount = () => {
-    return Object.entries(orderItems).reduce((sum, [productId, quantity]) => {
-      const discount = item_discounts[productId] || 0;
-      return sum + discount * quantity;
-    }, 0);
-  };
-
-  const getTotalDiscount = () => {
-    return getTotalItemsDiscount() + formData.orderDiscount;
-  };
-
-  const getSubtotal = () => {
-    return getGrossTotal() - getTotalItemsDiscount();
-  };
-
-  const getOrderTotal = () => {
-    return getSubtotal() + formData.deliveryFee - formData.orderDiscount;
-  };
-
-  const getDiscountPercentage = () => {
-    const grossTotal = getGrossTotal();
-    const totalDiscount = getTotalDiscount();
-    if (grossTotal > 0) {
-      return ((totalDiscount / grossTotal) * 100).toFixed(2);
-    }
-    return '0.00';
-  };
+  const getSubtotal = () => Object.entries(orderItems).reduce((sum, [productId, quantity]) => {
+    const product = products.find(p => p.id === productId);
+    return sum + (product?.price || 0) * quantity;
+  }, 0);
+  const getTotalItemsDiscount = () => Object.entries(itemDiscounts).reduce((sum, [productId, discount]) => sum + discount * (orderItems[productId] || 0), 0);
+  const getTotalOrderDiscount = () => getTotalItemsDiscount() + Number(formData.orderDiscount);
+  const getOrderTotal = () => getSubtotal() - getTotalItemsDiscount() + Number(formData.deliveryFee) - Number(formData.orderDiscount);
 
   if (!isOpen) return null;
 
-  const productIdsInOrder: string[] = [];
-  if (order) {
-    order.items.forEach(item => {
-      const id = getProductId(item);
-      if (id) productIdsInOrder.push(id);
-    });
-  }
-
-  const productsToShow = products.filter(p =>
-    p.isActive || productIdsInOrder.includes(p.id)
-  );
+  const productsToShow = products.filter(p => p.isActive || Object.keys(orderItems).includes(p.id));
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-xl font-bold text-gray-900">{isEditing ? 'Editar Pedido' : 'Novo Pedido'}</h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[95vh] flex flex-col">
+        <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white z-10">
+          <h2 className="text-xl font-bold text-gray-900">{isEditing ? `Editar Pedido #${order?.number}` : 'Novo Pedido'}</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Cliente */}
-          <div>
-            <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
-              <User className="w-4 h-4" />
-              <span>Cliente *</span>
-            </label>
-            <select
-              name="customerId"
-              value={formData.customerId}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-            >
-              <option value="">Selecione um cliente</option>
-              {customers.map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.name} - {customer.whatsapp}
-                </option>
-              ))}
-            </select>
-          </div>
 
-          {/* Produtos */}
-          <div>
-            <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-3">
-              <ShoppingCart className="w-4 h-4" />
-              <span>Produtos *</span>
-            </label>
-            <div className="space-y-3 max-h-60 overflow-y-auto border rounded-lg p-3">
-              {productsToShow.map((product) => (
-                <div key={product.id} className="flex flex-col sm:flex-row items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex-1">
-                    <h4 className="font-medium text-gray-900">{product.name}</h4>
-                    <p className="text-sm text-gray-600">
-                      {item_discounts[product.id] > 0 && (
-                        <span className="text-red-500 line-through mr-2">
-                          {formatCurrency(product.price)}
-                        </span>
-                      )}
-                      {item_discounts[product.id] ? formatCurrency(product.price - item_discounts[product.id]) : formatCurrency(product.price)}
-                    </p>
-                  </div>
-                  {orderItems[product.id] > 0 && (
-                    <div className="flex items-center space-x-2 mt-2 sm:mt-0">
-                      <label className="text-sm font-medium text-gray-700">Desc. (R$):</label>
-                      <input
-                        type="number"
-                        value={item_discounts[product.id] || 0}
-                        onChange={(e) => handleitem_discountChange(product.id, e.target.value)}
-                        className="w-20 px-2 py-1 text-sm text-center border rounded-lg"
-                        step="0.50"
-                        min="0"
-                      />
+        <form id="order-form" onSubmit={handleSubmit} className="flex-grow overflow-y-auto p-6 space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-6">
+
+            <div className="space-y-6">
+              <div>
+                <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2"><User className="w-4 h-4" /><span>Cliente *</span></label>
+                <select name="customerId" value={formData.customerId} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                  <option value="">Selecione um cliente</option>
+                  {customers.map((c) => (<option key={c.id} value={c.id}>{c.name} - {c.whatsapp}</option>))}
+                </select>
+              </div>
+
+              <div>
+                <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-3"><ShoppingCart className="w-4 h-4" /><span>Produtos *</span></label>
+                <div className="space-y-3 max-h-[calc(100vh-20rem)] overflow-y-auto border rounded-lg p-3 bg-gray-50">
+                  {productsToShow.map((product) => (
+                    <div key={product.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 bg-white rounded-lg shadow-sm gap-2">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900">{product.name}</h4>
+                        <p className="text-sm text-gray-600">
+                          {itemDiscounts[product.id] > 0 && (<span className="text-red-500 line-through mr-2">{formatCurrency(product.price)}</span>)}
+                          {formatCurrency(product.price - (itemDiscounts[product.id] || 0))}
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {orderItems[product.id] > 0 && (
+                          <div className="flex items-center space-x-2">
+                            <label className="text-sm font-medium text-gray-700">Desc(R$):</label>
+                            <input type="number" value={itemDiscounts[product.id] || ''} onChange={(e) => handleItemDiscountChange(product.id, e.target.value)} className="w-20 px-2 py-1 text-sm text-center border rounded-lg" step="0.50" min="0" placeholder="0,00" />
+                          </div>
+                        )}
+                        {orderItems[product.id] ? (
+                          <>
+                            <button type="button" onClick={() => handleRemoveProduct(product.id)} className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center"><Minus className="w-4 h-4" /></button>
+                            <span className="w-8 text-center font-semibold">{orderItems[product.id]}</span>
+                            <button type="button" onClick={() => handleAddProduct(product.id)} className="w-8 h-8 bg-orange-500 hover:bg-orange-600 text-white rounded-full flex items-center justify-center"><Plus className="w-4 h-4" /></button>
+                          </>
+                        ) : (
+                          <button type="button" onClick={() => handleAddProduct(product.id)} className="px-3 py-1 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-lg text-sm font-semibold">Adicionar</button>
+                        )}
+                      </div>
                     </div>
-                  )}
-                  <div className="flex items-center space-x-2 mt-2 sm:mt-0">
-                    {orderItems[product.id] ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveProduct(product.id)}
-                          className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center"
-                        >
-                          <Minus className="w-4 h-4" />
-                        </button>
-                        <span className="w-8 text-center font-semibold">
-                          {orderItems[product.id]}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleAddProduct(product.id)}
-                          className="w-8 h-8 bg-orange-500 hover:bg-orange-600 text-white rounded-full flex items-center justify-center"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleAddProduct(product.id)}
-                        className="px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm"
-                      >
-                        Adicionar
-                      </button>
-                    )}
-                  </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2"><Package className="w-4 h-4" /><span>Status do Pedido</span></label>
+                  <select name="status" value={formData.status} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                    <option value="pending">Pendente</option><option value="confirmed">Confirmado</option><option value="preparing">Preparando</option><option value="ready">Pronto</option><option value="delivered">Entregue</option><option value="cancelled">Cancelado</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2"><CheckCircle className="w-4 h-4" /><span>Status do Pagamento</span></label>
+                  <select name="paymentStatus" value={formData.paymentStatus} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                    <option value="pending">Pendente</option><option value="paid">Pago</option><option value="cancelled">Cancelado</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+                <h3 className="text-md font-semibold text-gray-800 border-b pb-2 mb-3">Datas e Prazos</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2"><Calendar className="w-4 h-4" /><span>Data do Pedido</span></label>
+                    <input type="datetime-local" name="orderDate" value={formData.orderDate} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                  </div>
+                  <div>
+                    <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2"><Clock className="w-4 h-4" /><span>Previsão de Entrega</span></label>
+                    <input type="datetime-local" name="estimatedDelivery" value={formData.estimatedDelivery} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                  </div>
+                  {isEditing && <>
+                    <div>
+                      <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2"><Truck className="w-4 h-4" /><span>Data da Entrega</span></label>
+                      <input type="datetime-local" name="completedAt" value={formData.completedAt} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                    </div>
+                    <div>
+                      <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2"><CreditCard className="w-4 h-4" /><span>Data do Pagamento</span></label>
+                      <input type="datetime-local" name="paymentDate" value={formData.paymentDate} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                    </div>
+                  </>}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">Taxa de Entrega (R$)</label>
+                  <input type="number" name="deliveryFee" value={formData.deliveryFee} onChange={handleChange} min="0" step="0.05" className="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="0,00" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">Desconto Geral (R$)</label>
+                  <input type="number" name="orderDiscount" value={formData.orderDiscount} onChange={handleChange} min="0" step="0.05" className="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="0,00" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Observações</label>
+                <textarea name="notes" value={formData.notes || ''} onChange={handleChange} rows={2} className="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Observações sobre o pedido..." />
+              </div>
             </div>
           </div>
 
-          {/* Detalhes do Pedido */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
             <div>
-              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
-                <Truck className="w-4 h-4" />
-                <span>Entrega</span>
-              </label>
-              <select
-                name="deliveryMethod"
-                value={formData.deliveryMethod}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              >
-                <option value="pickup">Retirada</option>
-                <option value="delivery">Entrega</option>
+              <label className="text-sm font-medium text-gray-700 mb-2 block">Entrega</label>
+              <select name="deliveryMethod" value={formData.deliveryMethod} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                <option value="pickup">Retirada</option><option value="delivery">Entrega</option>
               </select>
             </div>
             <div>
-              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
-                <CreditCard className="w-4 h-4" />
-                <span>Pagamento</span>
-              </label>
-              <select
-                name="paymentMethod"
-                value={formData.paymentMethod}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              >
-                <option value="cash">Dinheiro</option>
-                <option value="card">Cartão</option>
-                <option value="pix">PIX</option>
-                <option value="transfer">Transferência</option>
+              <label className="text-sm font-medium text-gray-700 mb-2 block">Pagamento</label>
+              <select name="paymentMethod" value={formData.paymentMethod} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                <option value="cash">Dinheiro</option><option value="card">Cartão</option><option value="pix">PIX</option><option value="transfer">Transferência</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-2 block">Canal de Venda</label>
+              <select name="salesChannel" value={formData.salesChannel} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                <option value="direct">Direto</option><option value="whatsapp">WhatsApp</option><option value="99food">99Food</option><option value="ifood">iFood</option>
               </select>
             </div>
           </div>
+        </form>
 
-          {/* ✅ NOVO: Campos de Status e Canal de Venda */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500"
-              >
-                <option value="pending">Pendente</option>
-                <option value="confirmed">Confirmado</option>
-                <option value="preparing">Preparando</option>
-                <option value="ready">Pronto</option>
-                <option value="delivered">Entregue</option>
-                <option value="cancelled">Cancelado</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Status de Pagamento</label>
-              <select
-                name="paymentStatus"
-                value={formData.paymentStatus}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500"
-              >
-                <option value="pending">Pendente</option>
-                <option value="paid">Pago</option>
-                <option value="cancelled">Cancelado</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Canal de Venda</label>
-              <select
-                name="salesChannel"
-                value={formData.salesChannel}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500"
-              >
-                <option value="direct">Direto</option>
-                <option value="whatsapp">WhatsApp</option>
-                <option value="99food">99Food</option>
-                <option value="ifood">iFood</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-2 block">
-                Taxa de Entrega (R$)
-              </label>
-              <input
-                type="number"
-                name="deliveryFee"
-                value={formData.deliveryFee}
-                onChange={handleChange}
-                min="0"
-                step="0.05"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                placeholder="0,00"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-2 block">
-                Desconto Geral (R$)
-              </label>
-              <input
-                type="number"
-                name="orderDiscount"
-                value={formData.orderDiscount}
-                onChange={handleChange}
-                min="0"
-                step="0.05"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                placeholder="0,00"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700 mb-2 block">
-              Observações
-            </label>
-            <textarea
-              name="notes"
-              value={formData.notes}
-              onChange={handleChange}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              placeholder="Observações sobre o pedido..."
-            />
-          </div>
+        <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 p-6 border-t sticky bottom-0 bg-white z-10">
           {Object.keys(orderItems).length > 0 && (
-            <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-              <div className="flex justify-between items-center text-sm">
-                <span>Subtotal Bruto:</span>
-                <span>{formatCurrency(getGrossTotal())}</span>
+            <div className="flex-grow bg-gray-100 p-4 rounded-lg flex items-center justify-around text-center">
+              <div>
+                <span className="text-sm text-gray-600 block">Subtotal</span>
+                <span className="font-semibold text-lg">{formatCurrency(getSubtotal())}</span>
               </div>
-              <div className="flex justify-between items-center text-sm text-red-500">
-                <span>Desconto nos Itens:</span>
-                <span>- {formatCurrency(getTotalItemsDiscount())}</span>
+              <div className="text-red-500">
+                <span className="text-sm block">Descontos</span>
+                <span className="font-semibold text-lg">- {formatCurrency(getTotalOrderDiscount())}</span>
               </div>
-              <div className="flex justify-between items-center text-sm text-red-500">
-                <span>Desconto Geral:</span>
-                <span>- {formatCurrency(formData.orderDiscount)}</span>
+              <div>
+                <span className="text-sm text-gray-600 block">Entrega</span>
+                <span className="font-semibold text-lg">{formatCurrency(formData.deliveryFee)}</span>
               </div>
-              <div className="flex justify-between items-center text-sm">
-                <span>Taxa de Entrega:</span>
-                <span>{formatCurrency(formData.deliveryFee)}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm font-bold border-t pt-2">
-                <span>Total a Pagar:</span>
-                <span>{formatCurrency(getOrderTotal())}</span>
-              </div>
-              <div className="text-xs text-gray-600 mt-2 text-right">
-                <p>Desconto total: {getTotalDiscount().toFixed(2)} ({getDiscountPercentage()}%)</p>
+              <div className="text-blue-600">
+                <span className="text-sm block">Total</span>
+                <span className="font-bold text-xl">{formatCurrency(getOrderTotal())}</span>
               </div>
             </div>
           )}
-          <div className="flex space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200 disabled:opacity-50"
-            >
+          <div className="flex space-x-3 w-full md:w-auto">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-3 text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors font-semibold">Cancelar</button>
+            <button type="submit" form="order-form" disabled={loading} className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200 disabled:opacity-50 font-semibold">
               {loading ? 'Salvando...' : (isEditing ? 'Atualizar' : 'Criar Pedido')}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

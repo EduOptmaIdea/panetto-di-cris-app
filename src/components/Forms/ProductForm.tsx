@@ -43,7 +43,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
     } else if (product) {
       setFormData({
         name: product.name,
-        description: product.description,
+        description: product.description || '',
         category: product.category,
         price: product.price,
         image: product.image || '',

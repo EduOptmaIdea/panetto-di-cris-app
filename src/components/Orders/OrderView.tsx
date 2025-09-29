@@ -1,5 +1,8 @@
-import React from 'react';
-import { X, User, Phone, MapPin } from 'lucide-react'; // ✅ Importações corrigidas
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { X, User, Phone, MapPin } from 'lucide-react';
 import type { Order, OrderStatus, PaymentStatus } from '../../types';
 
 interface OrderViewProps {
@@ -58,6 +61,48 @@ const getPaymentLabel = (status: PaymentStatus) => {
 };
 
 const OrderView: React.FC<OrderViewProps> = ({ isOpen, onClose, order }) => {
+    const [paymentDate, setPaymentDate] = useState<string | null>(null);
+    const [deliveryDate, setDeliveryDate] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!isOpen || !order) {
+            return;
+        }
+
+        const fetchStatusDates = async () => {
+            setPaymentDate(null);
+            setDeliveryDate(null);
+
+            const { data: paymentHistory, error: paymentError } = await supabase
+                .from('order_status_history')
+                .select('created_at')
+                .eq('order_id', order.id)
+                .eq('payment_status', 'paid')
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+            if (paymentError) console.error("Erro ao buscar data de pagamento:", paymentError);
+            if (paymentHistory && paymentHistory.length > 0) {
+                setPaymentDate(format(new Date(paymentHistory[0].created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }));
+            }
+
+            const { data: deliveryHistory, error: deliveryError } = await supabase
+                .from('order_status_history')
+                .select('created_at')
+                .eq('order_id', order.id)
+                .eq('status', 'delivered')
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+            if (deliveryError) console.error("Erro ao buscar data de entrega:", deliveryError);
+            if (deliveryHistory && deliveryHistory.length > 0) {
+                setDeliveryDate(format(new Date(deliveryHistory[0].created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }));
+            }
+        };
+
+        fetchStatusDates();
+    }, [isOpen, order]);
+
     if (!isOpen || !order) return null;
 
     const getOrderDiscountTotal = () => {
@@ -66,7 +111,15 @@ const OrderView: React.FC<OrderViewProps> = ({ isOpen, onClose, order }) => {
         return itemsDiscount + orderDiscount;
     };
 
+    const getGrossSubtotal = () => {
+        return order.items.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
+    };
+
     const totalDiscounts = getOrderDiscountTotal();
+    const grossSubtotal = getGrossSubtotal();
+
+    // --- NOVA LÓGICA AQUI: Calcular o percentual de desconto total ---
+    const discountPercentage = grossSubtotal > 0 ? (totalDiscounts / grossSubtotal) * 100 : 0;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -101,21 +154,23 @@ const OrderView: React.FC<OrderViewProps> = ({ isOpen, onClose, order }) => {
                     {/* Status do Pedido */}
                     <div className="bg-gray-50 rounded-lg p-4">
                         <h3 className="text-lg font-semibold text-gray-900 mb-3">Status do Pedido</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-y-4 gap-x-2 text-sm text-gray-600">
                             <div>
-                                <p>Status:</p>
+                                <p className="font-medium">Status:</p>
                                 <span className={getStatusBadge(order.currentStatus)}>{getStatusLabel(order.currentStatus)}</span>
+                                {deliveryDate && <p className="text-xs text-gray-500 mt-1">{deliveryDate}</p>}
                             </div>
                             <div>
-                                <p>Pagamento:</p>
+                                <p className="font-medium">Pagamento:</p>
                                 <span className={getPaymentBadge(order.currentPaymentStatus)}>{getPaymentLabel(order.currentPaymentStatus)}</span>
+                                {paymentDate && <p className="text-xs text-gray-500 mt-1">{paymentDate}</p>}
                             </div>
                             <div>
-                                <p>Método de Pagamento:</p>
+                                <p className="font-medium">Método de Pagamento:</p>
                                 <span className="text-gray-800 font-medium">{order.paymentMethod}</span>
                             </div>
                             <div>
-                                <p>Canal de Venda:</p>
+                                <p className="font-medium">Canal de Venda:</p>
                                 <span className="text-gray-800 font-medium">{order.salesChannel}</span>
                             </div>
                         </div>
@@ -157,11 +212,15 @@ const OrderView: React.FC<OrderViewProps> = ({ isOpen, onClose, order }) => {
                         <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
                                 <span>Subtotal Bruto:</span>
-                                <span>{formatCurrency(order.subtotal + (totalDiscounts || 0))}</span>
+                                <span>{formatCurrency(grossSubtotal)}</span>
                             </div>
+                            {/* --- ALTERAÇÃO AQUI: Adicionado o percentual de desconto --- */}
                             <div className="flex justify-between text-red-600">
                                 <span>Total de Descontos:</span>
-                                <span>- {formatCurrency(totalDiscounts || 0)}</span>
+                                <span>
+                                    {totalDiscounts > 0 && `(-${discountPercentage.toFixed(1)}%) `}
+                                    - {formatCurrency(totalDiscounts || 0)}
+                                </span>
                             </div>
                             <div className="flex justify-between">
                                 <span>Taxa de Entrega:</span>

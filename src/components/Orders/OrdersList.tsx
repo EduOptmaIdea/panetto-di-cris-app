@@ -242,107 +242,117 @@ const OrdersList: React.FC = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {sortedAndFilteredOrders.length > 0 ? (
           <div className="divide-y divide-gray-200">
-            {sortedAndFilteredOrders.map((order) => (
-              <div key={order.id} className="p-6 hover:bg-gray-50 transition-colors">
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <div className="flex items-center space-x-3 mb-2">
-                          <h3 className="text-lg font-semibold text-gray-900">Pedido #{formatOrderNumber(order.number ?? 0)}</h3>
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusBadge(order.currentStatus)}`}>
-                            {getStatusLabel(order.currentStatus)}
-                          </span>
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getPaymentBadge(order.currentPaymentStatus)}`}>
-                            {getPaymentLabel(order.currentPaymentStatus)}
-                          </span>
-                        </div>
+            {sortedAndFilteredOrders.map((order) => {
+              // --- ALTERAÇÃO AQUI ---
+              // Variável para verificar se o pedido está concluído
+              const isCompleted = order.currentStatus === 'delivered' && order.currentPaymentStatus === 'paid';
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600">
-                          <div className="flex items-center space-x-2">
-                            <User className="w-4 h-4" />
-                            <span>{order.customer?.name}</span>
-                          </div>
-
-                          <div className="flex items-center space-x-2">
-                            <Calendar className="w-4 h-4" />
-                            <span>
-                              {order.orderDate ? new Date(order.orderDate).toLocaleDateString('pt-BR') : 'Data não disponível'}
+              return (
+                <div key={order.id} className="p-6 hover:bg-gray-50 transition-colors">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <div className="flex items-center space-x-3 mb-2">
+                            <h3 className="text-lg font-semibold text-gray-900">Pedido #{formatOrderNumber(order.number ?? 0)}</h3>
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusBadge(order.currentStatus)}`}>
+                              {getStatusLabel(order.currentStatus)}
+                            </span>
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${getPaymentBadge(order.currentPaymentStatus)}`}>
+                              {getPaymentLabel(order.currentPaymentStatus)}
                             </span>
                           </div>
 
-                          <div className="flex items-center space-x-2">
-                            <Truck className="w-4 h-4" />
-                            <span>{order.deliveryMethod === 'delivery' ? 'Entrega' : 'Retirada'}</span>
-                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600">
+                            <div className="flex items-center space-x-2">
+                              <User className="w-4 h-4" />
+                              <span>{order.customer?.name}</span>
+                            </div>
 
-                          <div className="flex items-center space-x-2">
-                            <span className="text-xs bg-gray-100 px-2 py-1 rounded">
-                              {getChannelLabel(order.salesChannel)}
-                            </span>
+                            <div className="flex items-center space-x-2">
+                              <Calendar className="w-4 h-4" />
+                              <span>
+                                {order.orderDate ? new Date(order.orderDate).toLocaleDateString('pt-BR') : 'Data não disponível'}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center space-x-2">
+                              <Truck className="w-4 h-4" />
+                              <span>{order.deliveryMethod === 'delivery' ? 'Entrega' : 'Retirada'}</span>
+                            </div>
+
+                            <div className="flex items-center space-x-2">
+                              <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                                {getChannelLabel(order.salesChannel)}
+                              </span>
+                            </div>
                           </div>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-xl font-bold text-gray-900 flex items-center">
+                            <DollarSign className="w-5 h-5 mr-1" />
+                            {order.total.toFixed(2)}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {order.items.length} {order.items.length === 1 ? 'item' : 'itens'}
+                          </p>
                         </div>
                       </div>
 
-                      <div className="text-right">
-                        <p className="text-xl font-bold text-gray-900 flex items-center">
-                          <DollarSign className="w-5 h-5 mr-1" />
-                          {order.total.toFixed(2)}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {order.items.length} {order.items.length === 1 ? 'item' : 'itens'}
-                        </p>
+                      <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                        <div className="flex flex-wrap gap-2">
+                          {order.items.slice(0, 3).map((item, index) => (
+                            <span key={index} className="text-xs bg-white px-2 py-1 rounded border">
+                              {item.quantity}x {item.product.name}
+                            </span>
+                          ))}
+                          {order.items.length > 3 && (
+                            <span className="text-xs text-gray-500">
+                              +{order.items.length - 3} mais
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                      <div className="flex flex-wrap gap-2">
-                        {order.items.slice(0, 3).map((item, index) => (
-                          <span key={index} className="text-xs bg-white px-2 py-1 rounded border">
-                            {item.quantity}x {item.product.name}
-                          </span>
-                        ))}
-                        {order.items.length > 3 && (
-                          <span className="text-xs text-gray-500">
-                            +{order.items.length - 3} mais
-                          </span>
-                        )}
-                      </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handleView(order)}
+                        className="flex items-center space-x-1 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                      >
+                        <Eye className="w-4 h-4" />
+                        <span>Ver</span>
+                      </button>
+
+                      {/* --- ALTERAÇÃO AQUI --- */}
+                      <button
+                        onClick={() => handleEdit(order)}
+                        disabled={isCompleted}
+                        className="flex items-center space-x-1 px-3 py-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Edit className="w-4 h-4" />
+                        <span>Editar</span>
+                      </button>
+
+                      {/* --- ALTERAÇÃO AQUI --- */}
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Excluir pedido #${formatOrderNumber(order.number ?? 0)}? Esta ação é irreversível.`)) {
+                            deleteOrder(order.id);
+                          }
+                        }}
+                        disabled={isCompleted}
+                        className="flex items-center space-x-1 px-3 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span>Excluir</span>
+                      </button>
                     </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => handleView(order)}
-                      className="flex items-center space-x-1 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-                    >
-                      <Eye className="w-4 h-4" />
-                      <span>Ver</span>
-                    </button>
-
-                    <button
-                      onClick={() => handleEdit(order)}
-                      className="flex items-center space-x-1 px-3 py-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors"
-                    >
-                      <Edit className="w-4 h-4" />
-                      <span>Editar</span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        if (window.confirm(`Excluir pedido #${formatOrderNumber(order.number ?? 0)}? Esta ação é irreversível.`)) {
-                          deleteOrder(order.id);
-                        }
-                      }}
-                      className="flex items-center space-x-1 px-3 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      <span>Excluir</span>
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         ) : (
           <div className="p-12 text-center">
@@ -393,4 +403,3 @@ const OrdersList: React.FC = () => {
 };
 
 export default OrdersList;
-

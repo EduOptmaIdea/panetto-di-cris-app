@@ -1,6 +1,13 @@
 import { createContext, useContext } from 'react';
 import type { Customer, Product, Order, ProductCategory } from '../types';
 
+// Interface para o objeto de notificação, para manter a tipagem forte
+interface Notification {
+  title: string;
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
+
 interface AppContextType {
   // Data
   customers: Customer[];
@@ -16,7 +23,7 @@ interface AppContextType {
   updateCustomer: (id: string, customer: Partial<Customer>) => Promise<void>;
   deleteCustomer: (id: string) => Promise<void>;
   
-  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'totalSold' | 'priceHistory' | 'customPackaging'>) => Promise<void>;
+  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'totalSold' | 'priceHistory' | 'customPackaging'>) => Promise<Product | null>;
   updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
 
@@ -29,6 +36,9 @@ interface AppContextType {
   deleteOrder: (id: string) => Promise<void>;
   
   refetch: () => Promise<void>;
+
+  // --- FUNÇÃO DE NOTIFICAÇÃO REINTEGRADA ---
+  addNotification: (notification: Notification) => void;
 }
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);

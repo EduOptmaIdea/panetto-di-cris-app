@@ -28,4 +28,5 @@ triggers_supabase
 .env
 triggers_supabase
 *.old
+*.sql
 

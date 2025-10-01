@@ -1,144 +1,119 @@
-import React, { useMemo } from 'react';
-import { X, DollarSign, Tag, Weight, CheckCircle, XCircle, ShoppingBag } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase';
+import { X, DollarSign, Weight, CheckCircle, XCircle, ShoppingBag, Edit } from 'lucide-react';
 import type { Product } from '../../types';
 import { useApp } from '../../contexts/AppContext';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+
+interface ProductMedia {
+    id: string;
+    media_url: string;
+    media_type: string;
+    is_active: boolean;
+}
 
 interface ProductViewProps {
     isOpen: boolean;
     onClose: () => void;
+    onEdit: (product: Product) => void;
     product?: Product;
 }
 
-const ProductView: React.FC<ProductViewProps> = ({ isOpen, onClose, product }) => {
-    const { categories, orders } = useApp();
+const ProductView: React.FC<ProductViewProps> = ({ isOpen, onClose, onEdit, product }) => {
+    const { categories } = useApp();
+    const [medias, setMedias] = useState<ProductMedia[]>([]);
+    const [selectedMedia, setSelectedMedia] = useState<ProductMedia | null>(null);
 
-    // ✅ Calcular as 10 últimas vendas para o produto
-    const recentSales = useMemo(() => {
-        if (!product) return [];
+    useEffect(() => {
+        const fetchMedias = async (productId: string) => {
+            const { data } = await supabase
+                .from('product_medias')
+                .select('id, media_url, media_type, is_active')
+                .eq('product_id', productId)
+                .order('display_order');
 
-        const allSales: { date: Date; total: number }[] = [];
-        orders.forEach(order => {
-            order.items.forEach(item => {
-                if (item.productId === product.id && order.orderDate) {
-                    allSales.push({
-                        date: new Date(order.orderDate),
-                        total: item.total
-                    });
-                }
-            });
-        });
+            setMedias(data || []);
+            const firstActive = data?.find(m => m.is_active);
+            setSelectedMedia(firstActive || data?.[0] || null);
+        };
 
-        return allSales.sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 10);
-    }, [product, orders]);
+        if (isOpen && product) {
+            document.body.style.overflow = 'hidden';
+            fetchMedias(product.id);
+        } else {
+            document.body.style.overflow = 'unset';
+            setMedias([]);
+            setSelectedMedia(null);
+        }
+        return () => { document.body.style.overflow = 'unset'; };
+    }, [isOpen, product]);
 
     if (!isOpen || !product) return null;
 
-    const getCategoryName = (categoryId: string) => {
-        const category = categories.find(cat => cat.id === categoryId);
-        return category?.name || 'Categoria não encontrada';
-    };
+    const getCategoryName = (categoryId: string) => categories.find(c => c.id === categoryId)?.name || 'N/A';
+    const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
-    const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat('pt-BR', {
-            style: 'currency',
-            currency: 'BRL',
-        }).format(value);
-    };
+    const defaultImage = 'https://xhxywfrpokrvszbasihv.supabase.co/storage/v1/object/public/product-media/panetto-imagem-nao-disponivel.webp';
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-                <div className="flex items-center justify-between p-6 border-b">
-                    <h2 className="text-xl font-bold text-gray-900">{product.name}</h2>
-                    <button
-                        onClick={onClose}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
+            <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full flex flex-col max-h-[90vh] relative">
+                <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors z-20">
+                    <X className="w-6 h-6 text-gray-700" />
+                </button>
+
+                <div className="overflow-y-auto p-4 sm:p-6">
+                    <div className="flex items-start justify-between pb-4 mb-4 border-b">
+                        <div>
+                            <p className="text-sm text-gray-500">{getCategoryName(product.category)}</p>
+                            <h2 className="text-2xl font-bold text-gray-900 pr-12">{product.name}</h2>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                        <div className="w-full">
+                            <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                                {selectedMedia?.media_type === 'video' ? (
+                                    <video key={selectedMedia.id} src={selectedMedia.media_url} className="w-full h-full object-cover" autoPlay loop muted playsInline />
+                                ) : (
+                                    <img src={selectedMedia?.media_url || defaultImage} alt={product.name} className="w-full h-full object-cover" />
+                                )}
+                            </div>
+                            {medias.length > 1 && (
+                                <div className="grid grid-cols-5 gap-2 mt-2">
+                                    {medias.map(media => (
+                                        <div key={media.id} className={`aspect-square bg-gray-100 rounded-md cursor-pointer overflow-hidden ${selectedMedia?.id === media.id ? 'border-2 border-orange-500' : ''}`} onClick={() => setSelectedMedia(media)}>
+                                            {media.media_type === 'video' ? (
+                                                <video src={media.media_url} className={`w-full h-full object-cover ${media.is_active ? '' : 'opacity-40'}`} muted />
+                                            ) : (
+                                                <img src={media.media_url} alt="miniatura" className={`w-full h-full object-cover ${media.is_active ? '' : 'opacity-40'}`} />
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex flex-col space-y-6">
+                            <div><p className="text-sm font-medium text-gray-500 mb-1">Descrição</p><p className="text-gray-700 leading-relaxed">{product.description || "Nenhuma descrição fornecida."}</p></div>
+                            <div className="grid grid-cols-2 gap-4 border-t pt-6">
+                                <div className="flex items-center space-x-3"><DollarSign className="w-6 h-6 text-orange-500 flex-shrink-0" /><div><p className="text-sm text-gray-500">Preço</p><p className="font-semibold text-lg text-gray-900">{formatCurrency(product.price)}</p></div></div>
+                                <div className="flex items-center space-x-3"><Weight className="w-6 h-6 text-gray-400 flex-shrink-0" /><div><p className="text-sm text-gray-500">Peso</p><p className="font-semibold text-lg text-gray-900">{product.weight ? `${product.weight}g` : 'N/A'}</p></div></div>
+                            </div>
+                            <div className="border-t pt-6">
+                                <h3 className="text-base font-bold text-gray-800 mb-3">Informações Gerenciais</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="flex items-center space-x-3">{product.isActive ? <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0" /> : <XCircle className="w-6 h-6 text-red-500 flex-shrink-0" />}<div><p className="text-sm text-gray-500">Status</p><p className={`font-semibold text-lg ${product.isActive ? 'text-green-600' : 'text-red-600'}`}>{product.isActive ? 'Ativo' : 'Inativo'}</p></div></div>
+                                    <div className="flex items-center space-x-3"><ShoppingBag className="w-6 h-6 text-gray-400 flex-shrink-0" /><div><p className="text-sm text-gray-500">Total Vendido</p><p className="font-semibold text-lg text-gray-900">{product.totalSold || 0} un.</p></div></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div className="p-6 space-y-6">
-                    {/* Imagem do Produto */}
-                    {product.image && (
-                        <div className="mb-4 flex justify-center">
-                            <img src={product.image} alt={product.name} className="w-full sm:w-1/2 h-auto rounded-lg" />
-                        </div>
-                    )}
-
-                    {/* Informações Principais */}
-                    <div className="space-y-4">
-                        <div>
-                            <p className="text-sm font-medium text-gray-500">Descrição</p>
-                            <p className="text-gray-700">{product.description}</p>
-                        </div>
-                    </div>
-
-                    {/* Métricas e Detalhes */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t pt-6">
-                        <div className="flex items-center space-x-2">
-                            <DollarSign className="w-5 h-5 text-red-500" />
-                            <div>
-                                <p className="text-sm font-medium text-gray-500">Preço</p>
-                                <p className="font-semibold text-red-600">{formatCurrency(product.price)}</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <Tag className="w-5 h-5 text-gray-400" />
-                            <div>
-                                <p className="text-sm font-medium text-gray-500">Categoria</p>
-                                <p className="font-semibold text-gray-900">{getCategoryName(product.category)}</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <Weight className="w-5 h-5 text-gray-400" />
-                            <div>
-                                <p className="text-sm font-medium text-gray-500">Peso</p>
-                                <p className="font-semibold text-gray-900">{product.weight}g</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            {product.isActive ? (
-                                <CheckCircle className="w-5 h-5 text-green-500" />
-                            ) : (
-                                <XCircle className="w-5 h-5 text-red-500" />
-                            )}
-                            <div>
-                                <p className="text-sm font-medium text-gray-500">Status</p>
-                                <p className={`font-semibold ${product.isActive ? 'text-green-600' : 'text-red-600'}`}>
-                                    {product.isActive ? 'Ativo' : 'Inativo'}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Vendas Totais */}
-                    <div className="flex items-center space-x-2 border-t pt-6">
-                        <ShoppingBag className="w-5 h-5 text-gray-400" />
-                        <div>
-                            <p className="text-sm font-medium text-gray-500">Total Vendido</p>
-                            <p className="font-semibold text-gray-900">{product.totalSold} unidade(s)</p>
-                        </div>
-                    </div>
-
-                    {/* Últimas Vendas */}
-                    <div className="border-t pt-6">
-                        <h3 className="text-lg font-bold text-gray-900 mb-3">Últimas 10 Vendas</h3>
-                        {recentSales.length > 0 ? (
-                            <ul className="space-y-2 max-h-40 overflow-y-auto">
-                                {recentSales.map((sale, index) => (
-                                    <li key={index} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg text-sm">
-                                        <span className="text-gray-700">Venda em {format(sale.date, 'dd/MM/yyyy', { locale: ptBR })}</span>
-                                        <span className="font-semibold text-gray-900">{formatCurrency(sale.total)}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p className="text-gray-500 text-sm italic">Nenhuma venda recente.</p>
-                        )}
-                    </div>
+                <div className="flex-shrink-0 p-4 bg-gray-50 border-t rounded-b-xl mt-auto">
+                    <button onClick={() => onEdit(product)} className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors mx-auto flex items-center justify-center" title="Editar Produto">
+                        <Edit size={24} />
+                    </button>
                 </div>
             </div>
         </div>

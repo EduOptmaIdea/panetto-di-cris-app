@@ -49,7 +49,7 @@ interface ProductFormProps {
 }
 
 const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, product, isEditing = false }) => {
-  const { addProduct, updateProduct, categories, refetch, addNotification } = useApp();
+  const { addProduct, updateProduct, categories, refetch, /*addNotification*/ } = useApp();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -154,13 +154,13 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, product, isE
       const primaryImageUrl = newPrimaryMedia ? newPrimaryMedia.media_url : null;
       await updateProduct(productId, { name, description, category, price: priceAsNumber, weight: Number(weight), isActive, image: primaryImageUrl });
 
-      addNotification({ title: 'Sucesso!', message: `Produto ${isEditing ? 'atualizado' : 'criado'} com sucesso.`, type: 'success' });
+      //addNotification({ title: 'Sucesso!', message: `Produto ${isEditing ? 'atualizado' : 'criado'} com sucesso.`, type: 'success' });
       await refetch();
       onClose();
     } catch (error: any) {
       console.error("Erro ao salvar produto:", error);
       setError(`Erro: ${error.message}`);
-      addNotification({ title: 'Erro ao Salvar', message: error.message, type: 'error' });
+      //addNotification({ title: 'Erro ao Salvar', message: error.message, type: 'error' });
     } finally {
       setLoading(false);
     }

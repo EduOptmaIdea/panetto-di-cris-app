@@ -1,218 +1,168 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../contexts/AppContext';
-import CustomerForm from '../Forms/CustomerForm';
-import CustomerView from '../Customers/CustomerView';
-import {
-    Search,
-    Plus,
-    Edit,
-    Eye,
-    Trash2,
-    User,
-} from 'lucide-react';
-import { Customer } from '../../types/index';
+import { Plus, Edit, Trash2, Package, Tag, Eye } from 'lucide-react';
+import CategoryForm from '../Forms/CategoryForm';
+import ProductForm from '../Forms/ProductForm';
+import type { ProductCategory, Product } from '../../types';
 
-const CustomersList: React.FC = () => {
-    const { customers, orders, loading, error, deleteCustomer } = useApp();
-    const [searchTerm, setSearchTerm] = useState('');
+const CategoriesList: React.FC = () => {
+    const { categories, products, deleteCategory, mostSoldCategory } = useApp();
     const [showForm, setShowForm] = useState(false);
-    const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-    const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
-    const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
-    const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+    const [editingCategory, setEditingCategory] = useState<ProductCategory | null>(null);
+    const [productToView, setProductToView] = useState<Product | null>(null);
 
-    const filteredCustomers = useMemo(() => {
-        return customers.filter(customer =>
-            customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (customer.whatsapp && customer.whatsapp.includes(searchTerm))
-        );
-    }, [customers, searchTerm]);
+    const handleDeleteCategory = (categoryId: string, productCount: number) => {
+        if (productCount > 0) {
+            alert('Não é possível excluir uma categoria que possui produtos cadastrados. Remova os produtos primeiro.');
+            return;
+        }
+        if (window.confirm('Tem certeza de que deseja excluir esta categoria?')) {
+            deleteCategory(categoryId);
+        }
+    };
 
-    const handleEdit = (customer: Customer) => {
-        setEditingCustomer(customer);
+    const handleEditCategory = (category: ProductCategory) => {
+        setEditingCategory(category);
         setShowForm(true);
-    };
-
-    const handleView = (customer: Customer) => {
-        setViewingCustomer(customer);
-    };
-
-    const handleCloseView = () => {
-        setViewingCustomer(null);
     };
 
     const handleCloseForm = () => {
         setShowForm(false);
-        setEditingCustomer(null);
+        setEditingCategory(null);
     };
 
-    const handleDelete = (customer: Customer) => {
-        setCustomerToDelete(customer);
-        setShowDeleteConfirmation(true);
+    const handleViewProduct = (product: Product) => {
+        setProductToView(product);
     };
 
-    const handleConfirmDelete = async () => {
-        if (customerToDelete) {
-            try {
-                await deleteCustomer(customerToDelete.id);
-                setShowDeleteConfirmation(false);
-                setCustomerToDelete(null);
-            } catch (err) {
-                console.error('Erro ao excluir cliente:', err);
-            }
-        }
-    };
-
-    const hasAssociatedOrders = (customerId: string) => {
-        return orders.some(order => order.customerId === customerId);
+    const handleCloseProductView = () => {
+        setProductToView(null);
     };
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Clientes</h1>
-                    <p className="text-gray-600">Gerencie a sua base de clientes.</p>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-                    <div className="relative w-full sm:max-w-xs">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Search className="h-5 w-5 text-gray-400" />
-                        </div>
-                        <input
-                            type="text"
-                            placeholder="Buscar cliente..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="block w-full rounded-lg border-0 py-2 pl-10 pr-4 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-orange-600 sm:text-sm sm:leading-6"
-                        />
-                    </div>
-                    <button
-                        onClick={() => {
-                            setEditingCustomer(null);
-                            setViewingCustomer(null);
-                            setShowForm(true);
-                        }}
-                        className="w-full sm:w-auto inline-flex justify-center items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:from-orange-600 hover:to-amber-600 transition-all duration-200"
-                    >
-                        <Plus className="h-5 w-5" />
-                        Novo Cliente
-                    </button>
-                </div>
+        <div className="p-6 bg-gray-50 min-h-screen">
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-3xl font-bold text-gray-900">Gerenciar Categorias</h1>
+                <button
+                    onClick={() => setShowForm(true)}
+                    className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-4 py-2 rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200 shadow-md flex items-center"
+                >
+                    <Plus size={20} className="mr-2" />
+                    Adicionar Categoria
+                </button>
             </div>
-            {loading ? (
-                <div className="flex justify-center items-center h-64">
-                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-orange-500"></div>
-                </div>
-            ) : error ? (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative text-center">
-                    <span className="block sm:inline">Erro ao carregar clientes: {error}</span>
-                </div>
-            ) : filteredCustomers.length > 0 ? (
-                <div className="bg-white shadow-sm rounded-lg border border-gray-200">
-                    <ul className="divide-y divide-gray-200">
-                        {filteredCustomers.map((customer) => {
-                            const hasOrders = hasAssociatedOrders(customer.id);
-                            return (
-                                <li key={customer.id}>
-                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 sm:p-6 hover:bg-gray-50">
-                                        <div className="flex-1 min-w-0 flex items-center space-x-3 mb-2 sm:mb-0">
-                                            <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 flex-shrink-0">
-                                                <User className="w-5 h-5" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-gray-900 truncate">{customer.name}</p>
-                                                <p className="text-xs text-gray-500 truncate">{customer.whatsapp}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center space-x-2 ml-auto sm:ml-0">
-                                            <button
-                                                onClick={() => handleView(customer)}
-                                                className="p-2 text-gray-400 hover:text-orange-500 transition-colors rounded-full hover:bg-gray-100"
-                                                title="Ver detalhes"
-                                            >
-                                                <Eye className="w-5 h-5" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleEdit(customer)}
-                                                className="p-2 text-gray-400 hover:text-orange-500 transition-colors rounded-full hover:bg-gray-100"
-                                                title="Editar"
-                                            >
-                                                <Edit className="w-5 h-5" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(customer)}
-                                                disabled={hasOrders}
-                                                className={`p-2 rounded-lg transition-colors ${hasOrders ? 'text-gray-400 cursor-not-allowed' : 'text-red-500 hover:bg-red-50'}`}
-                                                title={hasOrders ? "Não é possível excluir cliente com pedidos associados" : "Excluir Cliente"}
-                                            >
-                                                <Trash2 className="w-5 h-5" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </li>
-                            );
-                        })}
-                    </ul>
-                </div>
-            ) : (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-                    <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Search className="w-12 h-12 text-gray-400" />
-                    </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum cliente encontrado</h3>
-                    <p className="text-gray-600 mb-6">
-                        {searchTerm
-                            ? 'Tente ajustar o termo de busca'
-                            : 'Você ainda não possui clientes cadastrados'}
+
+            {mostSoldCategory && (
+                <div className="bg-white rounded-xl shadow-sm p-4 mb-6 border-l-4 border-orange-500">
+                    <h2 className="text-lg font-bold text-gray-800">Categoria mais vendida:</h2>
+                    <p className="text-gray-600">
+                        <span className="font-semibold text-orange-600">{mostSoldCategory.name}</span>
+                        {' '}com {mostSoldCategory.productCount} produto(s) mais vendidos.
                     </p>
-                    <button
-                        onClick={() => setShowForm(true)}
-                        className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200"
-                    >
-                        Cadastrar Primeiro Cliente
-                    </button>
                 </div>
             )}
-            <CustomerForm
+
+            {/* ✅ Layout responsivo: grade de cards em telas maiores e lista vertical em mobile */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {categories.length > 0 ? (
+                    categories.map(category => (
+                        <div key={category.id} className="bg-white rounded-xl shadow-md border border-gray-200 p-6 flex flex-col">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-xl font-bold text-gray-900">{category.name}</h3>
+                                <div className="flex items-center space-x-2">
+                                    <span
+                                        className={`px-2 py-1 text-xs font-semibold rounded-full ${category.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                            }`}
+                                    >
+                                        {category.isActive ? 'Ativa' : 'Inativa'}
+                                    </span>
+                                    <button
+                                        onClick={() => handleEditCategory(category)}
+                                        className="p-1 text-indigo-600 hover:text-indigo-900"
+                                        title="Editar"
+                                    >
+                                        <Edit size={20} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <p className="text-sm text-gray-600 mt-2 flex-grow">{category.description || 'Sem descrição.'}</p>
+
+                            <div className="mt-4 pt-4 border-t border-gray-100">
+                                <details className="group">
+                                    <summary className="flex items-center justify-between cursor-pointer list-none py-2 px-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                                        <span className="font-semibold text-gray-700 flex items-center space-x-2">
+                                            <Package className="w-4 h-4 text-gray-500" />
+                                            <span>Produtos ({category.productCount})</span>
+                                        </span>
+                                        <span className="transition-transform group-open:rotate-180">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                                            </svg>
+                                        </span>
+                                    </summary>
+                                    <ul className="mt-2 space-y-2 max-h-40 overflow-y-auto">
+                                        {products.filter(p => p.category === category.id).map(product => (
+                                            <li key={product.id} className="flex items-center justify-between p-2 rounded-md bg-white border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => handleViewProduct(product)}>
+                                                <span className="text-sm text-gray-700">{product.name}</span>
+                                                <div className="flex items-center space-x-2">
+                                                    <span className="text-xs text-gray-500">R$ {product.price.toFixed(2)}</span>
+                                                    <Eye className="w-4 h-4 text-blue-500" />
+                                                </div>
+                                            </li>
+                                        ))}
+                                        {category.productCount === 0 && (
+                                            <li className="text-center text-sm text-gray-500 p-2">Nenhum produto nesta categoria.</li>
+                                        )}
+                                    </ul>
+                                </details>
+                            </div>
+
+                            <div className="mt-4 flex space-x-2 justify-end">
+                                <button
+                                    onClick={() => handleDeleteCategory(category.id, category.productCount)}
+                                    className={`p-2 rounded-lg transition-colors ${category.productCount > 0 ? 'text-gray-400 cursor-not-allowed' : 'text-red-500 hover:bg-red-50'
+                                        }`}
+                                    title={category.productCount > 0 ? "Exclua os produtos primeiro" : "Excluir Categoria"}
+                                    disabled={category.productCount > 0}
+                                >
+                                    <Trash2 size={20} />
+                                </button>
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    <div className="col-span-full text-center p-12">
+                        <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Tag className="w-12 h-12 text-gray-400" />
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma categoria encontrada</h3>
+                        <p className="text-gray-600 mb-6">Você ainda não possui categorias cadastradas.</p>
+                        <button
+                            onClick={() => setShowForm(true)}
+                            className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all duration-200"
+                        >
+                            Cadastrar Primeira Categoria
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            <CategoryForm
                 isOpen={showForm}
                 onClose={handleCloseForm}
-                customer={editingCustomer ?? undefined}
-                isEditing={!!editingCustomer}
+                category={editingCategory || undefined}
+                isEditing={!!editingCategory}
             />
-            {viewingCustomer && (
-                <CustomerView
-                    isOpen={!!viewingCustomer}
-                    onClose={handleCloseView}
-                    customer={viewingCustomer}
-                />
-            )}
-            {showDeleteConfirmation && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full text-center">
-                        <Trash2 className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                        <h3 className="text-xl font-bold mb-2">Confirmar Exclusão</h3>
-                        <p className="text-gray-600 mb-4">Tem certeza de que deseja excluir o cliente "{customerToDelete?.name}"? Esta ação é irreversível.</p>
-                        <div className="flex justify-center space-x-4">
-                            <button
-                                onClick={() => setShowDeleteConfirmation(false)}
-                                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={handleConfirmDelete}
-                                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-                            >
-                                Excluir
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+
+            <ProductForm
+                isOpen={!!productToView}
+                onClose={handleCloseProductView}
+                product={productToView || undefined}
+            //isViewing={true}
+            />
         </div>
     );
 };
 
-export default CustomersList;
-
+export default CategoriesList;

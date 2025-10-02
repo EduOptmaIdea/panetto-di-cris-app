@@ -14,7 +14,7 @@ import ProductsList from './components/Products/ProductsList';
 import CategoriesList from './components/Categories/CategoriesList';
 import AnalyticsDashboard from './components/Analytics/AnalyticsDashboard';
 import DigitalMenu from './components/Menu/DigitalMenu';
-import DigitalMenuCard from './components/Menu/DigitalMenuCard'; // ✅ Importando o componente
+import DigitalMenuCard from './components/Menu/DigitalMenuCard';
 import PlaceholderView from './components/Placeholder/PlaceholderView';
 import NotificationCenter from './components/Notifications/NotificationCenter';
 import ToastNotification from './components/Notifications/ToastNotification';

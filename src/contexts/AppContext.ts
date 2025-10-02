@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { Customer, Product, Order, ProductCategory } from '../types';
+import type { Customer, Product, Order, OrderItem, ProductCategory, OrderStatus, PaymentStatus } from '../types';
 
 // Interface para o objeto de notificação, para manter a tipagem forte
 interface Notification {
@@ -23,7 +23,7 @@ interface AppContextType {
   updateCustomer: (id: string, customer: Partial<Customer>) => Promise<void>;
   deleteCustomer: (id: string) => Promise<void>;
   
-  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'totalSold' | 'priceHistory' | 'customPackaging'>) => Promise<Product | null>;
+  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'totalSold' | 'priceHistory'>) => Promise<Product | null>;
   updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
 
@@ -31,13 +31,18 @@ interface AppContextType {
   updateCategory: (id: string, updates: Partial<ProductCategory>) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
   
-  addOrder: (order: Omit<Order, 'id' | 'customer' | 'number' | 'created_at'>) => Promise<void>;
-  updateOrder: (id: string, order: Partial<Order>) => Promise<void>;
+  addOrder: (
+    order: Omit<Order, 'id' | 'orderDate' | 'customer' | 'number'> & {
+      items: OrderItem[];
+      currentStatus: OrderStatus;
+      currentPaymentStatus: PaymentStatus;
+    }
+  ) => Promise<void>;
+  updateOrder: (id: string, order: Partial<Order> & { items?: OrderItem[], currentStatus?: OrderStatus; currentPaymentStatus?: PaymentStatus; }) => Promise<void>;
   deleteOrder: (id: string) => Promise<void>;
   
   refetch: () => Promise<void>;
 
-  // --- FUNÇÃO DE NOTIFICAÇÃO REINTEGRADA ---
   addNotification: (notification: Notification) => void;
 }
 
